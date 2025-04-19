@@ -44,3 +44,11 @@ release:
     ---
 
     Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
+
+# Creates Darwin universal binaries.
+universal_binaries:
+  - replace: true
+
+# Enables source archives.
+source:
+  enabled: true
