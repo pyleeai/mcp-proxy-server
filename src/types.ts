@@ -10,3 +10,11 @@ export interface Servers {
 }
 
 export interface Configuration extends Servers {}
+
+export interface RetryOptions {
+	initialDelay?: number;
+	maxDelay?: number;
+	maxRetries?: number;
+	backoffFactor?: number;
+	fallbackValue?: unknown;
+}
