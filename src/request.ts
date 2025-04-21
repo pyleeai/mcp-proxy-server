@@ -1,12 +1,35 @@
 import type { z } from "zod";
-import { getAllClients, setRequestCache } from "./data";
+import { getAllClients, getRequestCache, setRequestCache } from "./data";
 import { logger } from "./logger";
 import type {
+	GetRequestHandlerConfig,
 	ListRequestHandlerCallback,
 	ListRequestHandlerConfig,
 } from "./types";
 
 using log = logger;
+
+export function getRequestHandler<
+	P extends Record<string, unknown>,
+	R extends object,
+>(schema: z.ZodType<R>, config: GetRequestHandlerConfig) {
+	return async ({ params }: { params: P }) => {
+		const { method, param } = config;
+		const key = params[param] as string;
+		const client = getRequestCache(method, key);
+
+		try {
+			log.debug(`Forwarding ${method} : ${param} request`);
+			return await client.client.request({ method, params }, schema);
+		} catch (error) {
+			log.error(
+				`Forwarding error with ${method} : ${param} request to ${client.name}`,
+				error,
+			);
+			return {};
+		}
+	};
+}
 
 export function listRequestHandler<
 	P extends Record<string, unknown>,
