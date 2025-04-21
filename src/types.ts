@@ -1,3 +1,6 @@
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+
 export type Server = {
 	command?: string;
 	args?: string[];
@@ -18,3 +21,9 @@ export interface RetryOptions {
 	backoffFactor?: number;
 	fallbackValue?: unknown;
 }
+
+export type ClientState = {
+	name: string;
+	client: Client;
+	transport: Promise<Transport | undefined>;
+};
