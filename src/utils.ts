@@ -1,4 +1,5 @@
 import { logger } from "./logger";
+import type { RetryOptions } from "./types";
 
 using log = logger;
 
@@ -21,4 +22,40 @@ export function fail<T extends Error>(
 	}
 	log.error(`${message}${error ? `: ${String(error)}` : ""}`);
 	throw new errorClass(`${message}${error ? `: ${String(error)}` : ""}`, error);
+}
+
+export async function retry<T>(
+	fn: () => T | Promise<T>,
+	options: RetryOptions = {},
+): Promise<T | undefined> {
+	const {
+		initialDelay = 1000,
+		maxDelay = 30000,
+		maxRetries = 3,
+		backoffFactor = 2,
+		fallbackValue = undefined,
+	} = options;
+
+	let attempt = 0;
+
+	while (attempt <= maxRetries) {
+		try {
+			return await fn();
+		} catch (error) {
+			if (attempt >= maxRetries) {
+				log.warn(
+					`All ${maxRetries} retry attempts failed, returning ${fallbackValue}`,
+					error,
+				);
+				return fallbackValue as T;
+			}
+
+			const time = Math.min(initialDelay * backoffFactor ** attempt, maxDelay);
+
+			log.warn(`Attempt ${attempt + 1} failed, retrying in ${time}ms`, error);
+
+			await delay(time);
+			attempt++;
+		}
+	}
 }
