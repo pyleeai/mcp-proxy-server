@@ -16,5 +16,8 @@
 	},
 	"peerDependencies": {
 		"typescript": "^5.0.0"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.10.1"
 	}
 }
