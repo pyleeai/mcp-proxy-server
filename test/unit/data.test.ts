@@ -211,3 +211,72 @@ describe("getAllClients", () => {
 		testClientNames = [];
 	});
 });
+
+describe("setRequestCache", () => {
+	const mockClientState: ClientState = {
+		name: "test-client",
+		client: {} as Client,
+		transport: Promise.resolve(undefined),
+	};
+
+	test("should map tools/list method to tools/call cache", () => {
+		// Arrange
+		const listMethod = "tools/list";
+		const callMethod = "tools/call";
+		const key = "test-key";
+
+		// Act
+		setRequestCache(listMethod, key, mockClientState);
+
+		// Assert
+		const clientState1 = {} as ClientState;
+		const clientState2 = {} as ClientState;
+		setRequestCache(callMethod, key, clientState1);
+		setRequestCache(callMethod, key, clientState2);
+	});
+
+	test("should map prompts/list method to prompts/get cache", () => {
+		// Arrange
+		const listMethod = "prompts/list";
+		const getMethod = "prompts/get";
+		const key = "test-key";
+
+		// Act
+		setRequestCache(listMethod, key, mockClientState);
+
+		// Assert
+		const clientState1 = {} as ClientState;
+		const clientState2 = {} as ClientState;
+		setRequestCache(getMethod, key, clientState1);
+		setRequestCache(getMethod, key, clientState2);
+	});
+
+	test("should map resources/call method to resources/read cache", () => {
+		// Arrange
+		const callMethod = "resources/call";
+		const readMethod = "resources/read";
+		const key = "test-key";
+
+		// Act
+		setRequestCache(callMethod, key, mockClientState);
+
+		// Assert
+		const clientState1 = {} as ClientState;
+		const clientState2 = {} as ClientState;
+		setRequestCache(readMethod, key, clientState1);
+		setRequestCache(readMethod, key, clientState2);
+	});
+
+	test("should use the method directly for non-mapped methods", () => {
+		// Arrange
+		const method = "tools/call";
+		const key = "test-key";
+
+		// Act
+		setRequestCache(method, key, mockClientState);
+
+		// Assert
+		const clientState = {} as ClientState;
+		setRequestCache(method, key, clientState);
+	});
+});
