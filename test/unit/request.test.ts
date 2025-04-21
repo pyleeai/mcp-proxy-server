@@ -1,4 +1,3 @@
-import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
 	afterEach,
 	beforeEach,
@@ -8,8 +7,10 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { z } from "zod";
 import * as dataModule from "../../src/data";
+import { getRequestCache } from "../../src/data";
 import { logger } from "../../src/logger";
 import { listRequestHandler } from "../../src/request";
 import type { ClientState, ListRequestHandlerConfig } from "../../src/types";
@@ -254,5 +255,76 @@ describe("listRequestHandler", () => {
 		});
 		expect(mockLoggerDebug).toHaveBeenCalledTimes(4);
 		expect(mockLoggerError).not.toHaveBeenCalled();
+	});
+
+	test("verifies items are cached during request handling", async () => {
+		// Arrange
+		const method = "tools/call";
+		const key = "items";
+		const item1 = { id: "test-item-1", name: "Test Item 1" };
+		const item2 = { id: "test-item-2", name: "Test Item 2" };
+		const testClientName = "test-client";
+		const mockTestClient: ClientState = {
+			name: testClientName,
+			client: {
+				request: mock(() =>
+					Promise.resolve({
+						[key]: [item1, item2],
+					}),
+				),
+			} as unknown as Client,
+			transport: Promise.resolve(undefined),
+		};
+		mockGetAllClients.mockReturnValue([mockTestClient]);
+		const testSchema = z.object({
+			[key]: z.array(
+				z.object({
+					id: z.string(),
+					name: z.string(),
+				}),
+			),
+		});
+		const testConfig: ListRequestHandlerConfig<typeof testSchema._type> = {
+			method,
+			param: "filter",
+			key,
+		};
+		const processFunction = (client: ClientState, item: unknown) => {
+			return {
+				clientName: client.name,
+				...(item as { id: string; name: string }),
+			};
+		};
+		const handler = listRequestHandler(testSchema, testConfig, processFunction);
+
+		// Act
+		const result = await handler({ method });
+
+		// Assert
+		expect(mockTestClient.client.request).toHaveBeenCalledWith(
+			{ method, params: undefined },
+			testSchema,
+		);
+		expect(result[key]).toHaveLength(2);
+		expect(result[key]).toContainEqual({
+			clientName: testClientName,
+			id: "test-item-1",
+			name: "Test Item 1",
+		});
+		expect(result[key]).toContainEqual({
+			clientName: testClientName,
+			id: "test-item-2",
+			name: "Test Item 2",
+		});
+		const cachedClientForItem1 = getRequestCache(method, item1.id);
+		const cachedClientForItem2 = getRequestCache(method, item2.id);
+		expect(cachedClientForItem1.name).toBe(testClientName);
+		expect(cachedClientForItem2.name).toBe(testClientName);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			`Collecting ${method} from ${testClientName}`,
+		);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			`Collected ${method} from ${testClientName}`,
+		);
 	});
 });
