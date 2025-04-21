@@ -2,6 +2,8 @@ import { logger } from "./logger";
 
 using log = logger;
 
+export const delay = Bun.sleep;
+
 export function fail<T extends Error>(
 	message: string,
 	errorClass: new (

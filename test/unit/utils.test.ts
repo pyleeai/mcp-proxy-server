@@ -2,6 +2,30 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { logger } from "../../src/logger";
 import * as utils from "../../src/utils";
 
+describe("delay", () => {
+	test("properly waits for the specified time", async () => {
+		// Arrange
+		const waitTime = 50;
+
+		// Act
+		const start = Date.now();
+		await utils.delay(waitTime);
+		const elapsed = Date.now() - start;
+
+		// Assert
+		expect(elapsed).toBeGreaterThanOrEqual(waitTime - 10);
+	});
+
+	test("works in Bun environment", async () => {
+		// Arrange & Assert
+		expect(process.versions.bun).toBeDefined();
+		expect(utils.delay).toBeDefined();
+
+		// Act - Verify it can be called with no errors
+		await utils.delay(1);
+	});
+});
+
 describe("fail", () => {
 	let loggerErrorSpy: ReturnType<typeof spyOn>;
 
