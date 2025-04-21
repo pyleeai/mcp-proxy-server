@@ -27,3 +27,14 @@ export type ClientState = {
 	client: Client;
 	transport: Promise<Transport | undefined>;
 };
+
+export interface ListRequestHandlerConfig<R extends object> {
+	method: string;
+	param: string;
+	key: keyof R;
+}
+
+export type ListRequestHandlerCallback = (
+	client: ClientState,
+	item: unknown,
+) => unknown;
