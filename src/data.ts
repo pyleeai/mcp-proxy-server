@@ -8,3 +8,31 @@ export const setClientState = (name: string, state: ClientState): void => {
 
 export const getAllClients = (): ClientState[] =>
 	Array.from(clientsStateMap.values());
+
+const requestCache: Record<string, Map<string, ClientState>> = {
+	"tools/call": new Map(),
+	"prompts/get": new Map(),
+	"resources/read": new Map(),
+};
+
+export const setRequestCache = (
+	method: string,
+	key: string,
+	state: ClientState,
+): void => {
+	let cache = method;
+
+	switch (method) {
+		case "prompts/list":
+			cache = "prompts/get";
+			break;
+		case "tools/list":
+			cache = "tools/call";
+			break;
+		case "resources/call":
+			cache = "resources/read";
+			break;
+	}
+
+	requestCache[cache]?.set(key, state);
+};
