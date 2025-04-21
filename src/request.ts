@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { getAllClients } from "./data";
+import { getAllClients, setRequestCache } from "./data";
 import { logger } from "./logger";
 import type {
 	ListRequestHandlerCallback,
@@ -32,7 +32,10 @@ export function listRequestHandler<
 							log.debug(`Collected ${method} from ${client.name}`);
 							const items = result[key];
 							return Array.isArray(items)
-								? items.map((item) => callback(client, item))
+								? items.map((item) => {
+										setRequestCache(method, item.id, client);
+										return callback(client, item);
+									})
 								: [];
 						} catch (error) {
 							log.error(
