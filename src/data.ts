@@ -36,3 +36,14 @@ export const setRequestCache = (
 
 	requestCache[cache]?.set(key, state);
 };
+
+export const getRequestCache = (method: string, key: string): ClientState => {
+	const map = requestCache[method];
+	const client = map?.get(key);
+
+	if (!client) {
+		throw new Error(`Client not found for ${method}:${key}`);
+	}
+
+	return client;
+};
