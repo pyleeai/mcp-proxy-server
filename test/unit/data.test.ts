@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { getAllClients, setClientState, setRequestCache } from "../../src/data";
+import {
+	getAllClients,
+	getRequestCache,
+	setClientState,
+	setRequestCache,
+} from "../../src/data";
 import type { ClientState } from "../../src/types";
 
 describe("setClientState", () => {
@@ -278,5 +283,77 @@ describe("setRequestCache", () => {
 		// Assert
 		const clientState = {} as ClientState;
 		setRequestCache(method, key, clientState);
+	});
+});
+
+describe("getRequestCache", () => {
+	const mockClientState: ClientState = {
+		name: "test-client-get-cache",
+		client: {} as Client,
+		transport: Promise.resolve(undefined),
+	};
+
+	test("should retrieve client state from tools/call cache", () => {
+		// Arrange
+		const method = "tools/call";
+		const key = `test-key-${Date.now()}`;
+		setRequestCache(method, key, mockClientState);
+
+		// Act
+		const result = getRequestCache(method, key);
+
+		// Assert
+		expect(result).toEqual(mockClientState);
+	});
+
+	test("should retrieve client state from prompts/get cache", () => {
+		// Arrange
+		const method = "prompts/get";
+		const key = `test-key-${Date.now()}`;
+		setRequestCache(method, key, mockClientState);
+
+		// Act
+		const result = getRequestCache(method, key);
+
+		// Assert
+		expect(result).toEqual(mockClientState);
+	});
+
+	test("should retrieve client state from resources/read cache", () => {
+		// Arrange
+		const method = "resources/read";
+		const key = `test-key-${Date.now()}`;
+		setRequestCache(method, key, mockClientState);
+
+		// Act
+		const result = getRequestCache(method, key);
+
+		// Assert
+		expect(result).toEqual(mockClientState);
+	});
+
+	test("should retrieve client state set with mapped method name", () => {
+		// Arrange
+		const listMethod = "tools/list";
+		const callMethod = "tools/call";
+		const key = `test-key-${Date.now()}`;
+		setRequestCache(listMethod, key, mockClientState);
+
+		// Act
+		const result = getRequestCache(callMethod, key);
+
+		// Assert
+		expect(result).toEqual(mockClientState);
+	});
+
+	test("should throw error when client is not found", () => {
+		// Arrange
+		const method = "tools/call";
+		const key = `nonexistent-key-${Date.now()}`;
+
+		// Act & Assert
+		expect(() => getRequestCache(method, key)).toThrow(
+			`Client not found for ${method}:${key}`,
+		);
 	});
 });
