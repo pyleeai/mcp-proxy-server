@@ -12,8 +12,132 @@ import { z } from "zod";
 import * as dataModule from "../../src/data";
 import { getRequestCache } from "../../src/data";
 import { logger } from "../../src/logger";
-import { listRequestHandler } from "../../src/request";
-import type { ClientState, ListRequestHandlerConfig } from "../../src/types";
+import { getRequestHandler, listRequestHandler } from "../../src/request";
+import type {
+	ClientState,
+	GetRequestHandlerConfig,
+	ListRequestHandlerConfig,
+} from "../../src/types";
+
+describe("getRequestHandler", () => {
+	const mockSchema = z.object({
+		id: z.string(),
+		name: z.string(),
+	});
+	const mockConfig: GetRequestHandlerConfig = {
+		method: "test/get",
+		param: "id",
+	};
+	const mockClient: ClientState = {
+		name: "test-client",
+		client: {
+			request: mock(() =>
+				Promise.resolve({
+					id: "test-id",
+					name: "Test Item",
+				}),
+			),
+		} as unknown as Client,
+		transport: Promise.resolve(undefined),
+	};
+	const mockErrorClient: ClientState = {
+		name: "error-client",
+		client: {
+			request: mock(() => Promise.reject(new Error("Test error"))),
+		} as unknown as Client,
+		transport: Promise.resolve(undefined),
+	};
+
+	let mockGetRequestCache: ReturnType<typeof spyOn>;
+	let mockLoggerDebug: ReturnType<typeof spyOn>;
+	let mockLoggerError: ReturnType<typeof spyOn>;
+
+	beforeEach(() => {
+		mockGetRequestCache = spyOn(dataModule, "getRequestCache");
+		mockLoggerDebug = spyOn(logger, "debug");
+		mockLoggerError = spyOn(logger, "error");
+	});
+
+	afterEach(() => {
+		mockGetRequestCache.mockRestore();
+		mockLoggerDebug.mockRestore();
+		mockLoggerError.mockRestore();
+	});
+
+	test("should handle errors gracefully", async () => {
+		// Arrange
+		mockGetRequestCache.mockReturnValue(mockErrorClient);
+		const handler = getRequestHandler(mockSchema, mockConfig);
+
+		// Act
+		const result = await handler({ params: { id: "error-id" } });
+
+		// Assert
+		expect(mockGetRequestCache).toHaveBeenCalledWith("test/get", "error-id");
+		expect(mockErrorClient.client.request).toHaveBeenCalledWith(
+			{ method: "test/get", params: { id: "error-id" } },
+			mockSchema,
+		);
+		expect(result).toEqual({});
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Forwarding test/get : id request",
+		);
+		expect(mockLoggerError).toHaveBeenCalledWith(
+			"Forwarding error with test/get : id request to error-client",
+			expect.any(Error),
+		);
+	});
+
+	test("should support different parameter names", async () => {
+		// Arrange
+		const customConfig: GetRequestHandlerConfig = {
+			method: "resource/get",
+			param: "resourceId",
+		};
+		mockGetRequestCache.mockReturnValue(mockClient);
+		const handler = getRequestHandler(mockSchema, customConfig);
+
+		// Act
+		const result = await handler({ params: { resourceId: "resource-123" } });
+
+		// Assert
+		expect(mockGetRequestCache).toHaveBeenCalledWith(
+			"resource/get",
+			"resource-123",
+		);
+		expect(mockClient.client.request).toHaveBeenCalledWith(
+			{ method: "resource/get", params: { resourceId: "resource-123" } },
+			mockSchema,
+		);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Forwarding resource/get : resourceId request",
+		);
+	});
+
+	test("should forward request to the correct client", async () => {
+		// Arrange
+		mockGetRequestCache.mockReturnValue(mockClient);
+		const handler = getRequestHandler(mockSchema, mockConfig);
+
+		// Act
+		const result = await handler({ params: { id: "test-id" } });
+
+		// Assert
+		expect(mockGetRequestCache).toHaveBeenCalledWith("test/get", "test-id");
+		expect(mockClient.client.request).toHaveBeenCalledWith(
+			{ method: "test/get", params: { id: "test-id" } },
+			mockSchema,
+		);
+		expect(result).toEqual({
+			id: "test-id",
+			name: "Test Item",
+		});
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Forwarding test/get : id request",
+		);
+		expect(mockLoggerError).not.toHaveBeenCalled();
+	});
+});
 
 describe("listRequestHandler", () => {
 	const mockSchema = z.object({
