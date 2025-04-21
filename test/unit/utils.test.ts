@@ -84,3 +84,150 @@ describe("fail", () => {
 		);
 	});
 });
+
+describe("retry", () => {
+	let loggerWarnSpy: ReturnType<typeof spyOn>;
+	let delaySpy: ReturnType<typeof spyOn>;
+
+	beforeEach(() => {
+		loggerWarnSpy = spyOn(logger, "warn");
+		delaySpy = spyOn(utils, "delay").mockImplementation(async () =>
+			Promise.resolve(),
+		);
+	});
+
+	afterEach(() => {
+		loggerWarnSpy.mockRestore();
+		delaySpy.mockRestore();
+	});
+
+	test("returns the result when the function succeeds on first attempt", async () => {
+		// Arrange
+		const expectedValue = { success: true };
+		const testFn = () => expectedValue;
+
+		// Act
+		const result = await utils.retry(testFn);
+
+		// Assert
+		expect(result).toEqual(expectedValue);
+		expect(loggerWarnSpy).not.toHaveBeenCalled();
+		expect(delaySpy).not.toHaveBeenCalled();
+	});
+
+	test("retries and returns the result when function eventually succeeds", async () => {
+		// Arrange
+		const expectedValue = { success: true };
+		let attempts = 0;
+		const testFn = () => {
+			if (attempts++ < 2) {
+				throw new Error(`Failed attempt ${attempts}`);
+			}
+			return expectedValue;
+		};
+
+		// Act
+		const result = await utils.retry(testFn);
+
+		// Assert
+		expect(result).toEqual(expectedValue);
+		expect(attempts).toBe(3);
+		expect(loggerWarnSpy).toHaveBeenCalledTimes(2);
+		expect(delaySpy).toHaveBeenCalledTimes(2);
+		expect(delaySpy).toHaveBeenNthCalledWith(1, 1000);
+		expect(delaySpy).toHaveBeenNthCalledWith(2, 2000);
+	});
+
+	test("retries the maximum number of times before returning the fallback value", async () => {
+		// Arrange
+		type TestResult = { fallback: boolean };
+		const fallbackValue: TestResult = { fallback: true };
+		let attempts = 0;
+		const testFn = (): TestResult => {
+			attempts++;
+			throw new Error("Always fails");
+		};
+		const options = {
+			maxRetries: 3,
+			fallbackValue,
+		};
+
+		// Act
+		const result = await utils.retry(testFn, options);
+
+		// Assert
+		expect(result).toEqual(fallbackValue);
+		expect(attempts).toBe(4);
+		expect(loggerWarnSpy).toHaveBeenCalledTimes(4);
+		expect(delaySpy).toHaveBeenCalledTimes(3);
+	});
+
+	test("uses custom retry options correctly", async () => {
+		// Arrange
+		let attempts = 0;
+		const testFn = () => {
+			attempts++;
+			throw new Error("Always fails");
+		};
+		const options = {
+			maxRetries: 2,
+			initialDelay: 500,
+			backoffFactor: 3,
+			maxDelay: 5000,
+		};
+
+		// Act
+		const result = await utils.retry(testFn, options);
+
+		// Assert
+		expect(result).toBeUndefined();
+		expect(attempts).toBe(3);
+		expect(loggerWarnSpy).toHaveBeenCalledTimes(3);
+		expect(delaySpy).toHaveBeenCalledTimes(2);
+		expect(delaySpy).toHaveBeenNthCalledWith(1, 500);
+		expect(delaySpy).toHaveBeenNthCalledWith(2, 1500);
+	});
+
+	test("respects the maxDelay option", async () => {
+		// Arrange
+		let attempts = 0;
+		const testFn = () => {
+			attempts++;
+			throw new Error("Always fails");
+		};
+		const options = {
+			maxRetries: 2,
+			initialDelay: 2000,
+			backoffFactor: 10,
+			maxDelay: 5000,
+		};
+
+		// Act
+		await utils.retry(testFn, options);
+
+		// Assert
+		expect(delaySpy).toHaveBeenNthCalledWith(1, 2000);
+		expect(delaySpy).toHaveBeenNthCalledWith(2, 5000);
+	});
+
+	test("handles Promise rejection correctly", async () => {
+		// Arrange
+		let attempts = 0;
+		const testFn = async () => {
+			attempts++;
+			return Promise.reject(new Error("Promise rejection"));
+		};
+
+		// Act
+		const result = await utils.retry(testFn);
+
+		// Assert
+		expect(result).toBeUndefined();
+		expect(attempts).toBe(4);
+		expect(loggerWarnSpy).toHaveBeenCalledTimes(4);
+		expect(loggerWarnSpy).toHaveBeenLastCalledWith(
+			"All 3 retry attempts failed, returning undefined",
+			expect.any(Error),
+		);
+	});
+});
