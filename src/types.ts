@@ -28,6 +28,11 @@ export type ClientState = {
 	transport: Promise<Transport | undefined>;
 };
 
+export interface GetRequestHandlerConfig {
+	method: string;
+	param: string;
+}
+
 export interface ListRequestHandlerConfig<R extends object> {
 	method: string;
 	param: string;
