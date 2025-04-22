@@ -4,7 +4,9 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
 	getAllClientStates,
 	getAllClients,
+	getClientFor,
 	getRequestCache,
+	setClientFor,
 	setClientState,
 	setRequestCache,
 } from "../../src/data";
@@ -376,6 +378,100 @@ describe("getRequestCache", () => {
 		// Act & Assert
 		expect(() => getRequestCache(method, key)).toThrow(
 			`Client not found for ${method}:${key}`,
+		);
+	});
+});
+
+describe("setClientFor", () => {
+	test("should set the client in the proxy map for a given method and identifier", () => {
+		// Arrange
+		const method = "test-method";
+		const identifier = "test-identifier";
+		const mockClient = { identifier: "client1" } as unknown as Client;
+
+		// Act
+		setClientFor(method, identifier, mockClient);
+
+		// Assert
+		const retrievedClient = getClientFor(method, identifier);
+		expect(retrievedClient).toBe(mockClient);
+	});
+
+	test("should overwrite an existing client for the same method and identifier", () => {
+		// Arrange
+		const method = "test-method-overwrite";
+		const identifier = "test-identifier-overwrite";
+		const mockClient1 = { identifier: "client1" } as unknown as Client;
+		const mockClient2 = { identifier: "client2" } as unknown as Client;
+
+		// Act
+		setClientFor(method, identifier, mockClient1);
+		setClientFor(method, identifier, mockClient2);
+
+		// Assert
+		const retrievedClient = getClientFor(method, identifier);
+		expect(retrievedClient).toBe(mockClient2);
+		expect(retrievedClient).not.toBe(mockClient1);
+	});
+
+	test("should handle multiple methods with different names", () => {
+		// Arrange
+		const method1 = "test-method-multi-1";
+		const method2 = "test-method-multi-2";
+		const name1 = "test-identifier-multi-1";
+		const name2 = "test-identifier-multi-2";
+		const mockClient1 = { identifier: "client1" } as unknown as Client;
+		const mockClient2 = { identifier: "client2" } as unknown as Client;
+
+		// Act
+		setClientFor(method1, name1, mockClient1);
+		setClientFor(method2, name2, mockClient2);
+
+		// Assert
+		const retrievedClient1 = getClientFor(method1, name1);
+		const retrievedClient2 = getClientFor(method2, name2);
+		expect(retrievedClient1).toBe(mockClient1);
+		expect(retrievedClient2).toBe(mockClient2);
+	});
+});
+
+describe("getClientFor", () => {
+	test("should get the client from the proxy map for a given method and identifier", () => {
+		// Arrange
+		const method = "test-method-get";
+		const identifier = "test-identifier-get";
+		const mockClient = { identifier: "client1" } as unknown as Client;
+		setClientFor(method, identifier, mockClient);
+
+		// Act
+		const result = getClientFor(method, identifier);
+
+		// Assert
+		expect(result).toBe(mockClient);
+	});
+
+	test("should throw an error when no clients are registered for a method", () => {
+		// Arrange
+		const method = `nonexistent-method-${Date.now()}`;
+		const identifier = "test-identifier";
+
+		// Act & Assert
+		expect(() => getClientFor(method, identifier)).toThrow(
+			`No clients registered for method ${method}`,
+		);
+	});
+
+	test("should throw an error when client is not found for a method and identifier", () => {
+		// Arrange
+		const method = "test-method-not-found";
+		const identifier = "test-identifier-exists";
+		const nonExistentName = `nonexistent-identifier-${Date.now()}`;
+		const mockClient = { identifier: "client1" } as unknown as Client;
+		setClientFor(method, identifier, mockClient);
+
+		// Act & Assert
+		expect(() => getClientFor(method, nonExistentName)).toThrow(
+			`Client not found for ${method}:${nonExistentName}`,
 		);
 	});
 });
