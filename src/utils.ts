@@ -5,7 +5,7 @@ using log = logger;
 
 export const delay = Bun.sleep;
 
-export function fail<T extends Error>(
+export const fail = <T extends Error>(
 	message: string,
 	errorClass: new (
 		message: string,
@@ -15,19 +15,19 @@ export function fail<T extends Error>(
 		cause?: unknown,
 	) => T,
 	error?: unknown,
-): never {
+): never => {
 	if (error instanceof Error) {
 		log.error(`${message}`, error);
 		throw new errorClass(`${message}: ${error.message}`, error);
 	}
 	log.error(`${message}${error ? `: ${String(error)}` : ""}`);
 	throw new errorClass(`${message}${error ? `: ${String(error)}` : ""}`, error);
-}
+};
 
-export async function retry<T>(
+export const retry = async <T>(
 	fn: () => T | Promise<T>,
 	options: RetryOptions = {},
-): Promise<T | undefined> {
+): Promise<T | undefined> => {
 	const {
 		initialDelay = 1000,
 		maxDelay = 30000,
@@ -58,7 +58,7 @@ export async function retry<T>(
 			attempt++;
 		}
 	}
-}
+};
 
 export const prefix = <U extends object, K extends keyof U = keyof U>(
 	prefix: string,
