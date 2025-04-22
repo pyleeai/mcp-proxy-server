@@ -13,8 +13,9 @@ using log = logger;
 export function getRequestHandler<
 	P extends Record<string, unknown>,
 	R extends object,
+	Output = z.infer<z.ZodType<R>>
 >(schema: z.ZodType<R>, config: GetRequestHandlerConfig) {
-	return async ({ params }: { params: P }) => {
+	return async ({ params }: { params: P; method?: string }) => {
 		const { method, param } = config;
 		const key = params[param] as string;
 		const client = getRequestCache(method, key);
@@ -34,13 +35,14 @@ export function getRequestHandler<
 
 export function listRequestHandler<
 	P extends Record<string, unknown>,
-	R extends object,
+	R extends Record<string, unknown>,
+	Output = R
 >(
 	schema: z.ZodType<R>,
 	config: ListRequestHandlerConfig<R>,
 	callback: ListRequestHandlerCallback,
 ) {
-	return async ({ params }: { method: string; params?: P }) => {
+	return async ({ params }: { method?: string; params?: P }) => {
 		const { method, key } = config;
 		const clients = getAllClients();
 		const response = {
@@ -52,12 +54,14 @@ export function listRequestHandler<
 							const result = await client.client.request(
 								{ method, params },
 								schema,
-							);
+							) as R;
 							log.debug(`Collected ${method} from ${client.name}`);
-							const items = result[key];
+							const items = result[key as keyof R];
 							return Array.isArray(items)
 								? items.map((item) => {
-										setRequestCache(method, item.id, client);
+										if (item && typeof item === 'object' && 'id' in item) {
+											setRequestCache(method, item.id, client);
+										}
 										return callback(client, item);
 									})
 								: [];
@@ -78,7 +82,7 @@ export function listRequestHandler<
 					}),
 				)
 			).flat(),
-		} as R;
+		} as Output;
 
 		return response;
 	};
