@@ -11,485 +11,655 @@ import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import * as dataModule from "../../src/data";
-import { getRequestCache } from "../../src/data";
+import { ClientRequestError } from "../../src/errors";
 import { logger } from "../../src/logger";
-import { getRequestHandler, listRequestHandler } from "../../src/request";
-import type {
-	ClientState,
-	GetRequestHandlerConfig,
-	ListRequestHandlerConfig,
-} from "../../src/types";
+import {
+	clientRequest,
+	readRequestHandler,
+	listRequestHandler,
+} from "../../src/request";
 
-describe("getRequestHandler", () => {
-	const mockSchema = z.object({
-		id: z.string(),
-		name: z.string(),
-	});
-	const mockConfig: GetRequestHandlerConfig = {
-		method: "test/get",
-		param: "id",
-	};
-	const mockClient: ClientState = {
-		name: "test-client",
-		client: {
-			request: mock(() =>
-				Promise.resolve({
-					id: "test-id",
-					name: "Test Item",
-				}),
-			),
-		} as unknown as Client,
-		transport: Promise.resolve(undefined),
-	};
-	const mockErrorClient: ClientState = {
-		name: "error-client",
-		client: {
-			request: mock(() => Promise.reject(new Error("Test error"))),
-		} as unknown as Client,
-		transport: Promise.resolve(undefined),
-	};
-
-	let mockGetRequestCache: ReturnType<typeof spyOn>;
-	let mockLoggerDebug: ReturnType<typeof spyOn>;
-	let mockLoggerError: ReturnType<typeof spyOn>;
+describe("clientRequest", () => {
+	let mockClient: Client;
+	let mockRequest: any;
+	let mockResultSchema: any;
+	let originalLoggerDebug: typeof logger.debug;
 
 	beforeEach(() => {
-		mockGetRequestCache = spyOn(dataModule, "getRequestCache");
-		mockLoggerDebug = spyOn(logger, "debug");
-		mockLoggerError = spyOn(logger, "error");
+		mockRequest = { method: "getUser", params: { name: "alice" } };
+		mockResultSchema = z.object({ success: z.boolean() });
+		mockClient = {
+			getServerVersion: mock(() => ({ name: "TestServer", version: "1.0.0" })),
+			request: mock(),
+		} as unknown as Client;
+		originalLoggerDebug = logger.debug;
+		logger.debug = mock();
 	});
 
 	afterEach(() => {
-		mockGetRequestCache.mockRestore();
+		logger.debug = originalLoggerDebug;
+	});
+
+	test("successfully performs the request", async () => {
+		// Arrange
+		const expectedResult = { success: true };
+		(mockClient.request as any).mockResolvedValue(expectedResult);
+
+		// Act
+		const result = await clientRequest(
+			mockClient,
+			mockRequest,
+			mockResultSchema,
+			"getUser",
+			"alice",
+		);
+
+		// Assert
+		expect(result).toEqual(expectedResult);
+		expect(logger.debug).toHaveBeenCalledWith(
+			"Requesting getUser:alice from TestServer (1.0.0)",
+		);
+		expect(mockClient.request).toHaveBeenCalledWith(
+			mockRequest,
+			mockResultSchema,
+		);
+	});
+
+	test("throws and calls fail on error", async () => {
+		// Arrange
+		const mockError = new Error("fail");
+		(mockClient.request as any).mockRejectedValue(mockError);
+		const failSpy = spyOn(
+			await import("../../src/utils"),
+			"fail",
+		).mockImplementation(() => {
+			throw new ClientRequestError("Mocked fail", { cause: mockError });
+		});
+
+		try {
+			// Act & Assert
+			expect(
+				clientRequest(
+					mockClient,
+					mockRequest,
+					mockResultSchema,
+					"getUser",
+					"alice",
+				),
+			).rejects.toThrow(ClientRequestError);
+			expect(failSpy).toHaveBeenCalledWith(
+				"Request error with getUser:alice to TestServer (1.0.0)",
+				ClientRequestError,
+				mockError,
+			);
+		} finally {
+			failSpy.mockRestore();
+		}
+	});
+
+	test("handles missing identifier and version safely", async () => {
+		// Arrange
+		mockClient.getServerVersion = mock(() => undefined);
+		const expectedResult = { success: true };
+		(mockClient.request as any).mockResolvedValue(expectedResult);
+
+		// Act
+		const result = await clientRequest(
+			mockClient,
+			mockRequest,
+			mockResultSchema,
+			"method",
+		);
+
+		// Assert
+		expect(result).toEqual(expectedResult);
+		expect(logger.debug).toHaveBeenCalledWith(
+			"Requesting method:undefined from undefined (undefined)",
+		);
+	});
+});
+
+describe("readRequestHandler", () => {
+	const requestSchema = z.object({
+		method: z.literal("test/get"),
+		params: z.object({
+			name: z.string().optional(),
+			uri: z.string().optional(),
+		}),
+	});
+	const resultSchema = z.object({
+		id: z.string(),
+		name: z.string(),
+	});
+	const mockClient = {
+		request: mock(() =>
+			Promise.resolve({
+				id: "test-id",
+				name: "Test Item",
+			}),
+		),
+		getServerVersion: mock(() => ({ name: "test-server", version: "1.0.0" })),
+	} as unknown as Client;
+	const mockErrorClient = {
+		request: mock(() => Promise.reject(new Error("Test error"))),
+		getServerVersion: mock(() => ({ name: "error-server", version: "1.0.0" })),
+	} as unknown as Client;
+	let mockGetClientFor: ReturnType<typeof spyOn>;
+	let mockLoggerDebug: ReturnType<typeof spyOn>;
+
+	beforeEach(() => {
+		mockGetClientFor = spyOn(dataModule, "getClientFor");
+		mockLoggerDebug = spyOn(logger, "debug");
+	});
+
+	afterEach(() => {
+		mockGetClientFor.mockRestore();
 		mockLoggerDebug.mockRestore();
-		mockLoggerError.mockRestore();
 	});
 
-	test("should handle errors gracefully", async () => {
+	test("should forward request to the correct client and return the result", async () => {
 		// Arrange
-		mockGetRequestCache.mockReturnValue(mockErrorClient);
-		const handler = getRequestHandler(mockSchema, mockConfig);
+		mockGetClientFor.mockReturnValue(mockClient);
+		const handler = readRequestHandler(requestSchema, resultSchema);
 
 		// Act
-		const result = await handler({ params: { id: "error-id" } });
+		const result = await handler({
+			method: "test/get",
+			params: { name: "test-name" },
+		});
 
 		// Assert
-		expect(mockGetRequestCache).toHaveBeenCalledWith("test/get", "error-id");
-		expect(mockErrorClient.client.request).toHaveBeenCalledWith(
-			{ method: "test/get", params: { id: "error-id" } },
-			mockSchema,
+		expect(mockGetClientFor).toHaveBeenCalledWith("test/get", "test-name");
+		expect(mockClient.request).toHaveBeenCalledWith(
+			{ method: "test/get", params: { name: "test-name" } },
+			resultSchema,
 		);
-		expect(result).toEqual({});
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Forwarding test/get : id request",
-		);
-		expect(mockLoggerError).toHaveBeenCalledWith(
-			"Forwarding error with test/get : id request to error-client",
-			expect.any(Error),
-		);
-	});
-
-	test("should support different parameter names", async () => {
-		// Arrange
-		const customConfig: GetRequestHandlerConfig = {
-			method: "resource/get",
-			param: "resourceId",
-		};
-		mockGetRequestCache.mockReturnValue(mockClient);
-		const handler = getRequestHandler(mockSchema, customConfig);
-
-		// Act
-		const result = await handler({ params: { resourceId: "resource-123" } });
-
-		// Assert
-		expect(mockGetRequestCache).toHaveBeenCalledWith(
-			"resource/get",
-			"resource-123",
-		);
-		expect(mockClient.client.request).toHaveBeenCalledWith(
-			{ method: "resource/get", params: { resourceId: "resource-123" } },
-			mockSchema,
-		);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Forwarding resource/get : resourceId request",
-		);
-	});
-
-	test("should forward request to the correct client", async () => {
-		// Arrange
-		mockGetRequestCache.mockReturnValue(mockClient);
-		const handler = getRequestHandler(mockSchema, mockConfig);
-
-		// Act
-		const result = await handler({ params: { id: "test-id" } });
-
-		// Assert
-		expect(mockGetRequestCache).toHaveBeenCalledWith("test/get", "test-id");
-		expect(mockClient.client.request).toHaveBeenCalledWith(
-			{ method: "test/get", params: { id: "test-id" } },
-			mockSchema,
-		);
+		expect(mockClient.getServerVersion).toHaveBeenCalled();
 		expect(result).toEqual({
 			id: "test-id",
 			name: "Test Item",
 		});
 		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Forwarding test/get : id request",
+			"Requesting test/get:test-name from test-server (1.0.0)",
 		);
-		expect(mockLoggerError).not.toHaveBeenCalled();
+	});
+
+	test("should use uri parameter when name is not provided", async () => {
+		// Arrange
+		mockGetClientFor.mockReturnValue(mockClient);
+		const handler = readRequestHandler(requestSchema, resultSchema);
+
+		// Act
+		const result = await handler({
+			method: "test/get",
+			params: { uri: "test-uri" },
+		});
+
+		// Assert
+		expect(mockGetClientFor).toHaveBeenCalledWith("test/get", "test-uri");
+		expect(mockClient.request).toHaveBeenCalledWith(
+			{ method: "test/get", params: { uri: "test-uri" } },
+			resultSchema,
+		);
+		expect(result).toEqual({
+			id: "test-id",
+			name: "Test Item",
+		});
+	});
+
+	test("should throw ClientRequestError when client request fails", async () => {
+		// Arrange
+		mockGetClientFor.mockReturnValue(mockErrorClient);
+		const handler = readRequestHandler(requestSchema, resultSchema);
+
+		// Act & Assert
+		try {
+			await handler({
+				method: "test/get",
+				params: { name: "error-name" },
+			});
+			fail("Expected function to throw");
+		} catch (error) {
+			expect(error).toBeInstanceOf(ClientRequestError);
+		}
+
+		expect(mockGetClientFor).toHaveBeenCalledWith("test/get", "error-name");
+		expect(mockErrorClient.request).toHaveBeenCalledWith(
+			{ method: "test/get", params: { name: "error-name" } },
+			resultSchema,
+		);
+		expect(mockErrorClient.getServerVersion).toHaveBeenCalled();
 	});
 });
 
 describe("listRequestHandler", () => {
-	const mockSchema = z.object({
-		results: z.array(
+	const requestSchema = z.object({
+		method: z.literal("test/list"),
+		params: z.object({
+			name: z.string().optional(),
+			uri: z.string().optional(),
+		}),
+	});
+	const resultSchema = z.object({
+		items: z.array(
 			z.object({
 				id: z.string(),
 				name: z.string(),
 			}),
 		),
 	});
-	const mockConfig: ListRequestHandlerConfig<typeof mockSchema._type> = {
-		method: "test/list",
-		param: "filter",
-		key: "results",
-	};
-	const mockClient1: ClientState = {
-		name: "client1",
-		client: {
-			request: mock(() =>
-				Promise.resolve({
-					results: [
-						{ id: "c1-item1", name: "Client 1 Item 1" },
-						{ id: "c1-item2", name: "Client 1 Item 2" },
-					],
-				}),
+	const mockClient1 = {
+		request: mock(() =>
+			Promise.resolve({
+				items: [
+					{ id: "c1-item1", name: "Client 1 Item 1" },
+					{ id: "c1-item2", name: "Client 1 Item 2" },
+				],
+			}),
+		),
+		getServerVersion: mock(() => ({ name: "client1", version: "1.0.0" })),
+	} as unknown as Client;
+	const mockClient2 = {
+		request: mock(() =>
+			Promise.resolve({
+				items: [
+					{ id: "c2-item1", name: "Client 2 Item 1" },
+					{ id: "c2-item2", name: "Client 2 Item 2" },
+				],
+			}),
+		),
+		getServerVersion: mock(() => ({ name: "client2", version: "1.0.0" })),
+	} as unknown as Client;
+	const mockErrorClient = {
+		request: mock(() => Promise.reject(new Error("Test error"))),
+		getServerVersion: mock(() => ({ name: "error-client", version: "1.0.0" })),
+	} as unknown as Client;
+	const mockMethodNotFoundClient = {
+		request: mock(() =>
+			Promise.reject(
+				new McpError(ErrorCode.MethodNotFound, "Method not found"),
 			),
-		} as unknown as Client,
-		transport: Promise.resolve(undefined),
-	};
-	const mockClient2: ClientState = {
-		name: "client2",
-		client: {
-			request: mock(() =>
-				Promise.resolve({
-					results: [
-						{ id: "c2-item1", name: "Client 2 Item 1" },
-						{ id: "c2-item2", name: "Client 2 Item 2" },
-					],
-				}),
-			),
-		} as unknown as Client,
-		transport: Promise.resolve(undefined),
-	};
-	const mockClient3: ClientState = {
-		name: "client3",
-		client: {
-			request: mock(() => Promise.reject(new Error("Test error"))),
-		} as unknown as Client,
-		transport: Promise.resolve(undefined),
-	};
-	const mockMethodNotFoundClient: ClientState = {
-		name: "method-not-found-client",
-		client: {
-			request: mock(() =>
-				Promise.reject({
-					message: "Method not found",
-					code: ErrorCode.MethodNotFound,
-					name: "McpError",
-				}),
-			),
-		} as unknown as Client,
-		transport: Promise.resolve(undefined),
-	};
+		),
+		getServerVersion: mock(() => ({
+			name: "not-found-client",
+			version: "1.0.0",
+		})),
+	} as unknown as Client;
+	const mockEmptyClient = {
+		request: mock(() => Promise.resolve({ items: [] })),
+		getServerVersion: mock(() => ({ name: "empty-client", version: "1.0.0" })),
+	} as unknown as Client;
+
+	const mockInvalidClient = {
+		request: mock(() => Promise.resolve({ items: "not-an-array" })),
+		getServerVersion: mock(() => ({
+			name: "invalid-client",
+			version: "1.0.0",
+		})),
+	} as unknown as Client;
 	let mockGetAllClients: ReturnType<typeof spyOn>;
+	let mockGetKeyFor: ReturnType<typeof spyOn>;
+	let mockGetReadMethodFor: ReturnType<typeof spyOn>;
+	let mockSetClientFor: ReturnType<typeof spyOn>;
 	let mockLoggerDebug: ReturnType<typeof spyOn>;
-	let mockLoggerError: ReturnType<typeof spyOn>;
-	let mockLoggerWarn: ReturnType<typeof spyOn>;
 
 	beforeEach(() => {
 		mockGetAllClients = spyOn(dataModule, "getAllClients");
+		mockGetKeyFor = spyOn(dataModule, "getKeyFor");
+		mockGetReadMethodFor = spyOn(dataModule, "getReadMethodFor");
+		mockSetClientFor = spyOn(dataModule, "setClientFor");
 		mockLoggerDebug = spyOn(logger, "debug");
-		mockLoggerError = spyOn(logger, "error");
-		mockLoggerWarn = spyOn(logger, "warn");
+		mockGetKeyFor.mockReturnValue("items");
+		mockGetReadMethodFor.mockReturnValue("test/get");
 	});
 
 	afterEach(() => {
 		mockGetAllClients.mockRestore();
+		mockGetKeyFor.mockRestore();
+		mockGetReadMethodFor.mockRestore();
+		mockSetClientFor.mockRestore();
 		mockLoggerDebug.mockRestore();
-		mockLoggerError.mockRestore();
-		mockLoggerWarn.mockRestore();
-	});
-
-	test("should handle errors from clients gracefully", async () => {
-		// Arrange
-		mockGetAllClients.mockReturnValue([mockClient1, mockClient3]);
-		const processFunction = (client: ClientState, item: unknown) => {
-			return {
-				clientName: client.name,
-				...(item as { id: string; name: string }),
-			};
-		};
-		const handler = listRequestHandler(mockSchema, mockConfig, processFunction);
-
-		// Act
-		const result = await handler({ method: "test/list" });
-
-		// Assert
-		expect(mockClient1.client.request).toHaveBeenCalledWith(
-			{ method: "test/list" },
-			mockSchema,
-		);
-		expect(mockClient3.client.request).toHaveBeenCalledWith(
-			{ method: "test/list" },
-			mockSchema,
-		);
-
-		expect(result.results).toHaveLength(2);
-		expect(result.results).toContainEqual({
-			clientName: "client1",
-			id: "c1-item1",
-			name: "Client 1 Item 1",
-		});
-		expect(result.results).toContainEqual({
-			clientName: "client1",
-			id: "c1-item2",
-			name: "Client 1 Item 2",
-		});
-		expect(mockLoggerDebug).toHaveBeenCalledTimes(3);
-		expect(mockLoggerError).toHaveBeenCalledTimes(1);
-		expect(mockLoggerError).toHaveBeenCalledWith(
-			"Error collecting test/list from client3",
-			expect.any(Error),
-		);
-	});
-
-	test("should handle non-array results", async () => {
-		// Arrange
-		const mockClientWithNonArray: ClientState = {
-			name: "nonArrayClient",
-			client: {
-				request: mock(() =>
-					Promise.resolve({
-						results: "not an array", // Non-array result
-					}),
-				),
-			} as unknown as Client,
-			transport: Promise.resolve(undefined),
-		};
-		mockGetAllClients.mockReturnValue([mockClientWithNonArray]);
-		const processFunction = (client: ClientState, item: unknown) => {
-			return { clientName: client.name, item };
-		};
-		const handler = listRequestHandler(mockSchema, mockConfig, processFunction);
-
-		// Act
-		const result = await handler({ method: "test/list" });
-
-		// Assert
-		expect(mockClientWithNonArray.client.request).toHaveBeenCalledWith(
-			{ method: "test/list" },
-			mockSchema,
-		);
-		expect(result.results).toHaveLength(0);
-		expect(mockLoggerDebug).toHaveBeenCalledTimes(2);
-	});
-
-	test("should handle empty array results", async () => {
-		// Arrange
-		const mockClientWithEmptyArray: ClientState = {
-			name: "emptyArrayClient",
-			client: {
-				request: mock(() =>
-					Promise.resolve({
-						results: [], // Empty array
-					}),
-				),
-			} as unknown as Client,
-			transport: Promise.resolve(undefined),
-		};
-		mockGetAllClients.mockReturnValue([mockClientWithEmptyArray]);
-		const processFunction = (client: ClientState, item: unknown) => {
-			return { clientName: client.name, item };
-		};
-		const handler = listRequestHandler(mockSchema, mockConfig, processFunction);
-
-		// Act
-		const result = await handler({ method: "test/list" });
-
-		// Assert
-		expect(mockClientWithEmptyArray.client.request).toHaveBeenCalledWith(
-			{ method: "test/list" },
-			mockSchema,
-		);
-		expect(result.results).toHaveLength(0);
-		expect(mockLoggerDebug).toHaveBeenCalledTimes(2);
-	});
-
-	test("should work with multiple clients with mixed results and errors", async () => {
-		// Arrange
-		mockGetAllClients.mockReturnValue([mockClient1, mockClient2, mockClient3]);
-		const processFunction = (client: ClientState, item: unknown) => {
-			return {
-				clientName: client.name,
-				...(item as { id: string; name: string }),
-			};
-		};
-		const handler = listRequestHandler(mockSchema, mockConfig, processFunction);
-
-		// Act
-		const result = await handler({ method: "test/list" });
-
-		// Assert
-		expect(result.results).toHaveLength(4);
-		expect(mockLoggerDebug).toHaveBeenCalledTimes(5);
-		expect(mockLoggerError).toHaveBeenCalledTimes(1);
 	});
 
 	test("should process items from all successful clients", async () => {
 		// Arrange
 		mockGetAllClients.mockReturnValue([mockClient1, mockClient2]);
-		const processFunction = (client: ClientState, item: unknown) => {
-			return {
-				clientName: client.name,
-				...(item as { id: string; name: string }),
-			};
-		};
-		const handler = listRequestHandler(mockSchema, mockConfig, processFunction);
+		const handler = listRequestHandler(requestSchema, resultSchema);
 
 		// Act
 		const result = await handler({
 			method: "test/list",
-			params: { filter: "test" },
+			params: { name: "test-filter" },
 		});
 
 		// Assert
-		expect(mockClient1.client.request).toHaveBeenCalledWith(
-			{ method: "test/list", params: { filter: "test" } },
-			mockSchema,
+		expect(mockGetAllClients).toHaveBeenCalled();
+		expect(mockClient1.request).toHaveBeenCalledWith(
+			{ method: "test/list", params: { name: "test-filter" } },
+			resultSchema,
 		);
-		expect(mockClient2.client.request).toHaveBeenCalledWith(
-			{ method: "test/list", params: { filter: "test" } },
-			mockSchema,
+		expect(mockClient2.request).toHaveBeenCalledWith(
+			{ method: "test/list", params: { name: "test-filter" } },
+			resultSchema,
 		);
-		expect(result.results).toHaveLength(4);
-		expect(result.results).toContainEqual({
-			clientName: "client1",
-			id: "c1-item1",
-			name: "Client 1 Item 1",
+		expect(mockSetClientFor).toHaveBeenCalled();
+		expect(result).toEqual({
+			items: [
+				{ id: "c1-item1", name: "Client 1 Item 1" },
+				{ id: "c1-item2", name: "Client 1 Item 2" },
+				{ id: "c2-item1", name: "Client 2 Item 1" },
+				{ id: "c2-item2", name: "Client 2 Item 2" },
+			],
 		});
-		expect(result.results).toContainEqual({
-			clientName: "client1",
-			id: "c1-item2",
-			name: "Client 1 Item 2",
-		});
-		expect(result.results).toContainEqual({
-			clientName: "client2",
-			id: "c2-item1",
-			name: "Client 2 Item 1",
-		});
-		expect(result.results).toContainEqual({
-			clientName: "client2",
-			id: "c2-item2",
-			name: "Client 2 Item 2",
-		});
-		expect(mockLoggerDebug).toHaveBeenCalledTimes(4);
-		expect(mockLoggerError).not.toHaveBeenCalled();
 	});
 
-	test("verifies items are cached during request handling", async () => {
+	test("should apply callback function to transform items when provided", async () => {
 		// Arrange
-		const method = "tools/call";
-		const key = "items";
-		const item1 = { id: "test-item-1", name: "Test Item 1" };
-		const item2 = { id: "test-item-2", name: "Test Item 2" };
-		const testClientName = "test-client";
-		const mockTestClient: ClientState = {
-			name: testClientName,
-			client: {
-				request: mock(() =>
-					Promise.resolve({
-						[key]: [item1, item2],
-					}),
-				),
-			} as unknown as Client,
-			transport: Promise.resolve(undefined),
+		mockGetAllClients.mockReturnValue([mockClient1]);
+		const callback = (client: Client, item: unknown) => {
+			const typedItem = item as { id: string; name: string };
+			return {
+				originalId: typedItem.id,
+				displayName: typedItem.name.toUpperCase(),
+				clientName: client.getServerVersion()?.name,
+			};
 		};
-		mockGetAllClients.mockReturnValue([mockTestClient]);
-		const testSchema = z.object({
-			[key]: z.array(
+		const handler = listRequestHandler(requestSchema, resultSchema, callback);
+
+		// Act
+		const result = await handler({ method: "test/list", params: {} });
+
+		// Assert
+		expect(result).toEqual({
+			items: [
+				{
+					originalId: "c1-item1",
+					displayName: "CLIENT 1 ITEM 1",
+					clientName: "client1",
+				},
+				{
+					originalId: "c1-item2",
+					displayName: "CLIENT 1 ITEM 2",
+					clientName: "client1",
+				},
+			],
+		});
+	});
+
+	test("should handle errors from clients gracefully", async () => {
+		// Arrange
+		mockGetAllClients.mockReturnValue([mockClient1, mockErrorClient]);
+		const handler = listRequestHandler(requestSchema, resultSchema);
+
+		// Act
+		const result = await handler({ method: "test/list", params: {} });
+
+		// Assert
+		expect(result).toEqual({
+			items: [
+				{ id: "c1-item1", name: "Client 1 Item 1" },
+				{ id: "c1-item2", name: "Client 1 Item 2" },
+			],
+		});
+		expect(mockErrorClient.request).toHaveBeenCalled();
+		expect(mockSetClientFor).toHaveBeenCalled();
+	});
+
+	test("should handle McpError with MethodNotFound code gracefully", async () => {
+		// Arrange
+		mockGetAllClients.mockReturnValue([mockMethodNotFoundClient]);
+		const handler = listRequestHandler(requestSchema, resultSchema);
+
+		// Act
+		const result = await handler({ method: "test/list", params: {} });
+
+		// Assert
+		expect(result).toEqual({ items: [] });
+		expect(mockMethodNotFoundClient.request).toHaveBeenCalled();
+		expect(mockSetClientFor).not.toHaveBeenCalled();
+	});
+
+	test("should handle empty array results", async () => {
+		// Arrange
+		mockGetAllClients.mockReturnValue([mockEmptyClient]);
+		const handler = listRequestHandler(requestSchema, resultSchema);
+
+		// Act
+		const result = await handler({ method: "test/list", params: {} });
+
+		// Assert
+		expect(result).toEqual({ items: [] });
+		expect(mockEmptyClient.request).toHaveBeenCalled();
+	});
+
+	test("should handle non-array results", async () => {
+		// Arrange
+		mockGetAllClients.mockReturnValue([mockInvalidClient]);
+		const handler = listRequestHandler(requestSchema, resultSchema);
+
+		// Act
+		const result = await handler({ method: "test/list", params: {} });
+
+		// Assert
+		expect(result).toEqual({ items: [] });
+		expect(mockInvalidClient.request).toHaveBeenCalled();
+	});
+
+	test("should work with multiple clients with mixed results and errors", async () => {
+		// Arrange
+		mockGetAllClients.mockReturnValue([
+			mockClient1,
+			mockErrorClient,
+			mockEmptyClient,
+			mockClient2,
+		]);
+		const handler = listRequestHandler(requestSchema, resultSchema);
+
+		// Act
+		const result = await handler({ method: "test/list", params: {} });
+
+		// Assert
+		expect(result).toEqual({
+			items: [
+				{ id: "c1-item1", name: "Client 1 Item 1" },
+				{ id: "c1-item2", name: "Client 1 Item 2" },
+				{ id: "c2-item1", name: "Client 2 Item 1" },
+				{ id: "c2-item2", name: "Client 2 Item 2" },
+			],
+		});
+		expect(mockSetClientFor).toHaveBeenCalled();
+		expect(mockClient1.request).toHaveBeenCalled();
+		expect(mockClient2.request).toHaveBeenCalled();
+		expect(mockErrorClient.request).toHaveBeenCalled();
+		expect(mockEmptyClient.request).toHaveBeenCalled();
+	});
+
+	test("should properly cache items with their respective clients", async () => {
+		// Arrange
+		const mockPromptClient = {
+			request: mock(() =>
+				Promise.resolve({
+					prompts: [
+						{
+							name: "echo",
+							arguments: [{ name: "message", required: true }],
+						},
+						{
+							name: "summarize",
+							arguments: [{ name: "text", required: true }],
+						},
+					],
+				}),
+			),
+			getServerVersion: mock(() => ({
+				name: "prompt-client",
+				version: "1.0.0",
+			})),
+		} as unknown as Client;
+		const mockToolClient = {
+			request: mock(() =>
+				Promise.resolve({
+					tools: [
+						{
+							name: "calculator",
+							arguments: [{ name: "expression", required: true }],
+						},
+						{
+							name: "weather",
+							arguments: [{ name: "location", required: true }],
+						},
+					],
+				}),
+			),
+			getServerVersion: mock(() => ({ name: "tool-client", version: "1.0.0" })),
+		} as unknown as Client;
+		const mockResourceClient = {
+			request: mock(() =>
+				Promise.resolve({
+					resources: [
+						{
+							name: "image1",
+							description: "A test image",
+						},
+						{
+							name: "document1",
+							description: "A test document",
+						},
+					],
+				}),
+			),
+			getServerVersion: mock(() => ({
+				name: "resource-client",
+				version: "1.0.0",
+			})),
+		} as unknown as Client;
+		mockGetKeyFor.mockImplementation((method) => {
+			switch (method) {
+				case "prompts/list":
+					return "prompts";
+				case "tools/list":
+					return "tools";
+				case "resources/list":
+					return "resources";
+				default:
+					return method;
+			}
+		});
+		mockGetReadMethodFor.mockImplementation((method) => {
+			switch (method) {
+				case "prompts/list":
+					return "prompts/get";
+				case "tools/list":
+					return "tools/call";
+				case "resources/list":
+					return "resources/read";
+				default:
+					return method;
+			}
+		});
+		const promptsSchema = z.object({
+			method: z.literal("prompts/list"),
+			params: z.object({
+				name: z.string().optional(),
+				uri: z.string().optional(),
+			}),
+		});
+		const promptsResultSchema = z.object({
+			prompts: z.array(
 				z.object({
-					id: z.string(),
 					name: z.string(),
+					arguments: z.array(
+						z.object({
+							name: z.string(),
+							required: z.boolean(),
+						}),
+					),
 				}),
 			),
 		});
-		const testConfig: ListRequestHandlerConfig<typeof testSchema._type> = {
-			method,
-			param: "filter",
-			key,
-		};
-		const processFunction = (client: ClientState, item: unknown) => {
-			return {
-				clientName: client.name,
-				...(item as { id: string; name: string }),
-			};
-		};
-		const handler = listRequestHandler(testSchema, testConfig, processFunction);
+		const toolsSchema = z.object({
+			method: z.literal("tools/list"),
+			params: z.object({
+				name: z.string().optional(),
+				uri: z.string().optional(),
+			}),
+		});
+		const toolsResultSchema = z.object({
+			tools: z.array(
+				z.object({
+					name: z.string(),
+					arguments: z.array(
+						z.object({
+							name: z.string(),
+							required: z.boolean(),
+						}),
+					),
+				}),
+			),
+		});
+		const resourcesSchema = z.object({
+			method: z.literal("resources/list"),
+			params: z.object({
+				name: z.string().optional(),
+				uri: z.string().optional(),
+			}),
+		});
+		const resourcesResultSchema = z.object({
+			resources: z.array(
+				z.object({
+					name: z.string(),
+					description: z.string(),
+				}),
+			),
+		});
 
 		// Act
-		const result = await handler({ method });
+		mockGetAllClients.mockReturnValue([mockPromptClient]);
+		const promptsHandler = listRequestHandler(
+			promptsSchema,
+			promptsResultSchema,
+		);
+		await promptsHandler({ method: "prompts/list", params: {} });
+		mockGetAllClients.mockReturnValue([mockToolClient]);
+		const toolsHandler = listRequestHandler(toolsSchema, toolsResultSchema);
+		await toolsHandler({ method: "tools/list", params: {} });
+		mockGetAllClients.mockReturnValue([mockResourceClient]);
+		const resourcesHandler = listRequestHandler(
+			resourcesSchema,
+			resourcesResultSchema,
+		);
+		await resourcesHandler({ method: "resources/list", params: {} });
 
 		// Assert
-		expect(mockTestClient.client.request).toHaveBeenCalledWith(
-			{ method, params: undefined },
-			testSchema,
+		expect(mockSetClientFor).toHaveBeenCalledWith(
+			"prompts/get",
+			"echo",
+			mockPromptClient,
 		);
-		expect(result[key]).toHaveLength(2);
-		expect(result[key]).toContainEqual({
-			clientName: testClientName,
-			id: "test-item-1",
-			name: "Test Item 1",
-		});
-		expect(result[key]).toContainEqual({
-			clientName: testClientName,
-			id: "test-item-2",
-			name: "Test Item 2",
-		});
-		const cachedClientForItem1 = getRequestCache(method, item1.id);
-		const cachedClientForItem2 = getRequestCache(method, item2.id);
-		expect(cachedClientForItem1.name).toBe(testClientName);
-		expect(cachedClientForItem2.name).toBe(testClientName);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			`Collecting ${method} from ${testClientName}`,
+		expect(mockSetClientFor).toHaveBeenCalledWith(
+			"prompts/get",
+			"summarize",
+			mockPromptClient,
 		);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			`Collected ${method} from ${testClientName}`,
+		expect(mockSetClientFor).toHaveBeenCalledWith(
+			"tools/call",
+			"calculator",
+			mockToolClient,
 		);
-	});
-
-	test("should handle McpError with MethodNotFound code by logging warning", async () => {
-		// Arrange
-		const method = "test/list";
-		const mockMethodNotFoundError = new McpError(
-			ErrorCode.MethodNotFound,
-			"Method not found",
+		expect(mockSetClientFor).toHaveBeenCalledWith(
+			"tools/call",
+			"weather",
+			mockToolClient,
 		);
-		mockMethodNotFoundClient.client.request = mock(() =>
-			Promise.reject(mockMethodNotFoundError),
+		expect(mockSetClientFor).toHaveBeenCalledWith(
+			"resources/read",
+			"image1",
+			mockResourceClient,
 		);
-		mockGetAllClients.mockReturnValue([mockMethodNotFoundClient]);
-		const processFunction = (client: ClientState, item: unknown) => {
-			return { clientName: client.name, ...(item as object) };
-		};
-		const handler = listRequestHandler(mockSchema, mockConfig, processFunction);
-
-		// Act
-		const result = await handler({ method });
-
-		// Assert
-		expect(result.results).toBeEmpty();
-		expect(mockLoggerWarn).toHaveBeenCalled();
-		expect(mockLoggerError).not.toHaveBeenCalled();
+		expect(mockSetClientFor).toHaveBeenCalledWith(
+			"resources/read",
+			"document1",
+			mockResourceClient,
+		);
 	});
 });

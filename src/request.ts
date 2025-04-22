@@ -1,89 +1,122 @@
-import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import type { z } from "zod";
-import { getAllClients, getRequestCache, setRequestCache } from "./data";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { Result } from "@modelcontextprotocol/sdk/types.js";
+import type { ZodLiteral, ZodObject, z } from "zod";
+import {
+	getAllClients,
+	getClientFor,
+	getKeyFor,
+	getReadMethodFor,
+	setClientFor,
+} from "./data";
+import { ClientRequestError } from "./errors";
 import { logger } from "./logger";
-import type {
-	GetRequestHandlerConfig,
-	ListRequestHandlerCallback,
-	ListRequestHandlerConfig,
-} from "./types";
+import type { ListRequestHandlerCallback, RequestHandler } from "./types";
+import { fail } from "./utils";
 
 using log = logger;
 
-export function getRequestHandler<
-	P extends Record<string, unknown>,
-	R extends object,
-	Output = z.infer<z.ZodType<R>>
->(schema: z.ZodType<R>, config: GetRequestHandlerConfig) {
-	return async ({ params }: { params: P; method?: string }) => {
-		const { method, param } = config;
-		const key = params[param] as string;
-		const client = getRequestCache(method, key);
+export async function clientRequest<
+	RequestSchema extends ZodObject<{
+		method: ZodLiteral<string>;
+		params: ZodObject<{
+			name?: ZodLiteral<string> | z.ZodString;
+			uri?: ZodLiteral<string> | z.ZodString;
+		}>;
+	}>,
+	ResultSchema extends z.ZodType,
+>(
+	client: Client,
+	request: z.infer<RequestSchema>,
+	resultSchema: ResultSchema,
+	method: string,
+	identifier?: string | unknown | undefined,
+): Promise<z.infer<ResultSchema>> {
+	const version = client.getServerVersion();
 
-		try {
-			log.debug(`Forwarding ${method} : ${param} request`);
-			return await client.client.request({ method, params }, schema);
-		} catch (error) {
-			log.error(
-				`Forwarding error with ${method} : ${param} request to ${client.name}`,
-				error,
-			);
-			return {};
-		}
+	try {
+		log.debug(
+			`Requesting ${method}:${identifier} from ${version?.name} (${version?.version})`,
+		);
+		return await client.request(request, resultSchema);
+	} catch (error) {
+		fail(
+			`Request error with ${method}:${identifier} to ${version?.name} (${version?.version})`,
+			ClientRequestError,
+			error,
+		);
+	}
+}
+
+export function readRequestHandler<
+	RequestSchema extends ZodObject<{
+		method: ZodLiteral<string>;
+		params: ZodObject<{
+			name?: ZodLiteral<string> | z.ZodString;
+			uri?: ZodLiteral<string> | z.ZodString;
+		}>;
+	}>,
+	ResultSchema extends z.ZodType,
+>(
+	requestSchema: RequestSchema,
+	resultSchema: ResultSchema,
+): RequestHandler<RequestSchema> {
+	return async (request: z.infer<typeof requestSchema>): Promise<Result> => {
+		const method = request.method;
+		const identifier = request.params.name || request.params.uri;
+		const client = getClientFor(method, identifier as string);
+
+		return await clientRequest(
+			client,
+			request,
+			resultSchema,
+			method,
+			identifier,
+		);
 	};
 }
 
 export function listRequestHandler<
-	P extends Record<string, unknown>,
-	R extends Record<string, unknown>,
-	Output = R
+	RequestSchema extends ZodObject<{
+		method: ZodLiteral<string>;
+		params: ZodObject<{
+			name?: ZodLiteral<string> | z.ZodString;
+			uri?: ZodLiteral<string> | z.ZodString;
+		}>;
+	}>,
+	ResultSchema extends z.ZodType,
+	Key extends string = string,
+	Item = unknown,
+	Return = Item,
 >(
-	schema: z.ZodType<R>,
-	config: ListRequestHandlerConfig<R>,
-	callback: ListRequestHandlerCallback,
-) {
-	return async ({ params }: { method?: string; params?: P }) => {
-		const { method, key } = config;
+	requestSchema: RequestSchema,
+	resultSchema: ResultSchema,
+	callback?: ListRequestHandlerCallback<ResultSchema, Key, Item, Return>,
+): RequestHandler<RequestSchema> {
+	return async (request: z.infer<typeof requestSchema>): Promise<Result> => {
+		const method = request.method;
+		const key = getKeyFor(method);
+		const readMethod = getReadMethodFor(method);
 		const clients = getAllClients();
-		const response = {
-			[key as string]: (
-				await Promise.all(
-					clients.map(async (client) => {
-						try {
-							log.debug(`Collecting ${method} from ${client.name}`);
-							const result = await client.client.request(
-								{ method, params },
-								schema,
-							) as R;
-							log.debug(`Collected ${method} from ${client.name}`);
-							const items = result[key as keyof R];
-							return Array.isArray(items)
-								? items.map((item) => {
-										if (item && typeof item === 'object' && 'id' in item) {
-											setRequestCache(method, item.id, client);
-										}
-										return callback(client, item);
-									})
-								: [];
-						} catch (error) {
-							if (
-								error instanceof McpError &&
-								error.code === ErrorCode.MethodNotFound
-							) {
-								log.warn(`Method ${method} not found in ${client.name}`);
-							} else {
-								log.error(
-									`Error collecting ${method} from ${client.name}`,
-									error,
-								);
-							}
-							return [];
-						}
-					}),
-				)
-			).flat(),
-		} as Output;
+		const results = (
+			await Promise.allSettled(
+				clients.map((client) =>
+					clientRequest(client, request, resultSchema, method, key),
+				),
+			)
+		).flatMap((result, index) => {
+			log.debug(`Result for client ${index}:`, result);
+			return result.status === "fulfilled"
+				? Object.values(result.value).flatMap((items) =>
+						Array.isArray(items)
+							? items.map((item) => {
+									setClientFor(readMethod, item.name, clients[index]);
+									return callback ? callback(clients[index], item) : item;
+								})
+							: [],
+					)
+				: [];
+		});
 
-		return response;
+		return { [key]: results };
 	};
 }
