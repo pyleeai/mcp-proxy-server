@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { logger } from "../../src/logger";
 import * as utils from "../../src/utils";
+import { prefix } from "../../src/utils";
 
 describe("delay", () => {
 	test("properly waits for the specified time", async () => {
@@ -229,5 +230,75 @@ describe("retry", () => {
 			"All 3 retry attempts failed, returning undefined",
 			expect.any(Error),
 		);
+	});
+});
+
+describe("prefix", () => {
+	test("should prefix a string with bracket notation", () => {
+		const result = prefix("TEST", "hello");
+		expect(result).toBe("[TEST] hello");
+	});
+
+	test("should handle undefined string values", () => {
+		const result = prefix("TEST", undefined);
+		expect(result).toBe("[TEST] ");
+	});
+
+	test("should handle empty string values", () => {
+		const result = prefix("TEST", "");
+		expect(result).toBe("[TEST] ");
+	});
+
+	test("should prefix a specific field in an object", () => {
+		const obj = { name: "John", message: "Hello World" };
+		const result = prefix("TEST", obj, "message");
+
+		expect(result).toEqual({
+			name: "John",
+			message: "[TEST] Hello World",
+		});
+	});
+
+	test("should handle undefined field in an object", () => {
+		const obj = { name: "John" };
+		type ObjWithMessage = { name: string; message: string };
+		const result = prefix("TEST", obj as unknown as ObjWithMessage, "message");
+
+		expect(result).toEqual({
+			name: "John",
+			message: "[TEST] ",
+		});
+	});
+
+	test("should not modify the original object", () => {
+		const obj = { name: "John", message: "Hello World" };
+		prefix("TEST", obj, "message");
+
+		expect(obj).toEqual({ name: "John", message: "Hello World" });
+	});
+
+	test("should handle non-string field types in an object", () => {
+		const obj = { name: "John", count: 42 };
+		const result = prefix("TEST", obj, "count");
+
+		expect(result).toEqual({
+			name: "John",
+			count: "[TEST] 42",
+		} as typeof obj & { count: string });
+	});
+
+	test("should handle null values", () => {
+		const obj = { name: "John", message: null as null };
+		const result = prefix("TEST", obj, "message");
+
+		expect(result).toEqual({
+			name: "John",
+			message: "[TEST] ",
+		} as typeof obj & { message: string });
+	});
+
+	test("should use empty prefix if empty string provided", () => {
+		const result = prefix("", "hello");
+		expect(result).toBe("[] hello");
 	});
 });
