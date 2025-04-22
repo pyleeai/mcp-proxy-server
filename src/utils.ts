@@ -59,3 +59,29 @@ export async function retry<T>(
 		}
 	}
 }
+
+export const prefix = <U extends object, K extends keyof U = keyof U>(
+	prefix: string,
+	resourceOrValue: U | string | undefined,
+	field?: K,
+): U | string => {
+	const prefixString = (value?: string): string => `[${prefix}] ${value || ""}`;
+
+	if (
+		field &&
+		typeof resourceOrValue === "object" &&
+		resourceOrValue !== null
+	) {
+		const fieldValue = resourceOrValue[field];
+		const prefixedValue = prefixString(
+			fieldValue as unknown as string | undefined,
+		);
+
+		return {
+			...resourceOrValue,
+			[field]: prefixedValue,
+		};
+	}
+
+	return prefixString(resourceOrValue as unknown as string | undefined);
+};
