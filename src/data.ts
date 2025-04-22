@@ -1,3 +1,4 @@
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { ClientState } from "./types";
 
 const clientsStateMap = new Map<string, ClientState>();
@@ -6,8 +7,11 @@ export const setClientState = (name: string, state: ClientState): void => {
 	clientsStateMap.set(name, state);
 };
 
-export const getAllClients = (): ClientState[] =>
+export const getAllClientStates = (): ClientState[] =>
 	Array.from(clientsStateMap.values());
+
+export const getAllClients = (): Client[] =>
+	Array.from(clientsStateMap.values()).map((state) => state.client);
 
 const requestCache: Record<string, Map<string, ClientState>> = {
 	"tools/call": new Map(),

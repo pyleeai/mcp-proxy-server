@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
+	getAllClientStates,
 	getAllClients,
 	getRequestCache,
 	setClientState,
@@ -17,32 +18,31 @@ describe("setClientState", () => {
 	});
 
 	test("should store a client state", () => {
-		// Arrange
-		const testClientName = `test-client-${Date.now()}`;
-		testClientNames.push(testClientName);
-		const mockClient = { name: "client1" } as unknown as Client;
-		const mockTransport = Promise.resolve({
-			close: () => {},
-			start: () => Promise.resolve(),
-			send: () => Promise.resolve(),
-		} as unknown as Transport);
-		const clientState: ClientState = {
-			name: testClientName,
-			client: mockClient,
-			transport: mockTransport,
-		};
-		const clientsBefore = getAllClients();
+			// Arrange
+			const testClientName = `test-client-${Date.now()}`;
+			testClientNames.push(testClientName);
+			const mockClient = { name: "client1" } as unknown as Client;
+			const mockTransport = Promise.resolve({
+				close: () => {},
+				start: () => Promise.resolve(),
+				send: () => Promise.resolve(),
+			} as unknown as Transport);
+			const clientState: ClientState = {
+				name: testClientName,
+				client: mockClient,
+				transport: mockTransport,
+			};
+			const clientsBefore = getAllClientStates();
 
-		// Act
-		setClientState(testClientName, clientState);
+			// Act
+			setClientState(testClientName, clientState);
 
-		// Assert
-		const clientsAfter = getAllClients();
-		expect(clientsAfter.length).toBe(clientsBefore.length + 1);
-		expect(
-			clientsAfter.find((client) => client.name === testClientName),
-		).toEqual(clientState);
-	});
+			// Assert
+			const clientsAfter = getAllClientStates();
+			expect(clientsAfter.length).toBe(clientsBefore.length + 1);
+			const found = clientsAfter.find((client) => client.name === testClientName);
+			expect(found).toEqual(clientState as ClientState);
+		});
 
 	test("should overwrite an existing client state with the same name", () => {
 		// Arrange
@@ -70,19 +70,19 @@ describe("setClientState", () => {
 			client: mockClient2,
 			transport: mockTransport2,
 		};
-		const clientsBefore = getAllClients();
+		const clientsBefore = getAllClientStates();
 
 		// Act
 		setClientState(testClientName, clientState1);
 		setClientState(testClientName, clientState2);
 
 		// Assert
-		const clientsAfter = getAllClients();
+		const clientsAfter = getAllClientStates();
 		expect(clientsAfter.length).toBe(clientsBefore.length + 1);
 		const foundClient = clientsAfter.find(
 			(client) => client.name === testClientName,
 		);
-		expect(foundClient).toEqual(clientState2);
+		expect(foundClient).toEqual(clientState2 as ClientState);
 		expect(foundClient).not.toEqual(clientState1);
 	});
 
@@ -114,7 +114,7 @@ describe("getAllClients", () => {
 		testClientNames = [];
 	});
 
-	test("should return an array instance", () => {
+	test("should return an array of Client objects", () => {
 		// Act
 		const clients = getAllClients();
 
@@ -122,13 +122,13 @@ describe("getAllClients", () => {
 		expect(clients).toBeInstanceOf(Array);
 	});
 
-	test("should return all client states including the ones we add", () => {
+	test("should return all clients from the client states we add", () => {
 		// Arrange
-		const testClientName1 = `test-client-${Date.now()}-1`;
-		const testClientName2 = `test-client-${Date.now()}-2`;
+		const testClientName1 = `test-client-${Date.now()}-1-clients`;
+		const testClientName2 = `test-client-${Date.now()}-2-clients`;
 		testClientNames.push(testClientName1, testClientName2);
-		const mockClient1 = { name: "client1" } as unknown as Client;
-		const mockClient2 = { name: "client2" } as unknown as Client;
+		const mockClient1 = { name: "client1", id: "id1" } as unknown as Client;
+		const mockClient2 = { name: "client2", id: "id2" } as unknown as Client;
 		const mockTransport1 = Promise.resolve({
 			close: () => {},
 			start: () => Promise.resolve(),
@@ -158,19 +158,15 @@ describe("getAllClients", () => {
 
 		// Assert
 		expect(clientsAfter.length).toBe(clientsBefore.length + 2);
-		expect(clientsAfter.find((c) => c.name === testClientName1)).toEqual(
-			clientState1,
-		);
-		expect(clientsAfter.find((c) => c.name === testClientName2)).toEqual(
-			clientState2,
-		);
+		expect(clientsAfter).toContain(mockClient1 as Client);
+		expect(clientsAfter).toContain(mockClient2 as Client);
 	});
 
-	test("should return a new array that doesn't affect the internal state", () => {
+	test("should return a new array that does not affect the internal state", () => {
 		// Arrange
-		const testClientName = `test-client-${Date.now()}-array-copy`;
+		const testClientName = `test-client-${Date.now()}-array-copy-clients`;
 		testClientNames.push(testClientName);
-		const mockClient = { name: "client1" } as unknown as Client;
+		const mockClient = { name: "client1", id: "test-id" } as unknown as Client;
 		const mockTransport = Promise.resolve({
 			close: () => {},
 			start: () => Promise.resolve(),
@@ -191,9 +187,35 @@ describe("getAllClients", () => {
 		// Assert
 		const clientsAfterModification = getAllClients();
 		expect(clientsAfterModification.length).toBe(initialLength);
-		expect(
-			clientsAfterModification.find((c) => c.name === testClientName),
-		).toEqual(clientState);
+		expect(clientsAfterModification).toContain(mockClient as Client);
+	});
+
+	test("should extract only client properties from client states", () => {
+		// Arrange
+		const testClientName = `test-client-${Date.now()}-extract-clients`;
+		testClientNames.push(testClientName);
+		const mockClient = {
+			name: "extracted-client",
+			id: "extract-id",
+		} as unknown as Client;
+		const mockTransport = Promise.resolve({
+			close: () => {},
+			start: () => Promise.resolve(),
+			send: () => Promise.resolve(),
+		} as unknown as Transport);
+		const clientState: ClientState = {
+			name: testClientName,
+			client: mockClient,
+			transport: mockTransport,
+		};
+		setClientState(testClientName, clientState);
+
+		// Act
+		const clients = getAllClients();
+		const foundClient = clients.find((client) => client === mockClient);
+
+		// Assert
+		expect(foundClient).toBe(mockClient);
 	});
 
 	afterEach(() => {
@@ -303,7 +325,7 @@ describe("getRequestCache", () => {
 		const result = getRequestCache(method, key);
 
 		// Assert
-		expect(result).toEqual(mockClientState);
+		expect(result).toEqual(mockClientState as ClientState);
 	});
 
 	test("should retrieve client state from prompts/get cache", () => {
@@ -316,7 +338,7 @@ describe("getRequestCache", () => {
 		const result = getRequestCache(method, key);
 
 		// Assert
-		expect(result).toEqual(mockClientState);
+		expect(result).toEqual(mockClientState as ClientState);
 	});
 
 	test("should retrieve client state from resources/read cache", () => {
@@ -329,7 +351,7 @@ describe("getRequestCache", () => {
 		const result = getRequestCache(method, key);
 
 		// Assert
-		expect(result).toEqual(mockClientState);
+		expect(result).toEqual(mockClientState as ClientState);
 	});
 
 	test("should retrieve client state set with mapped method name", () => {
@@ -343,7 +365,7 @@ describe("getRequestCache", () => {
 		const result = getRequestCache(callMethod, key);
 
 		// Assert
-		expect(result).toEqual(mockClientState);
+		expect(result).toEqual(mockClientState as ClientState);
 	});
 
 	test("should throw error when client is not found", () => {
