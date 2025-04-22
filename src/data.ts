@@ -51,3 +51,26 @@ export const getRequestCache = (method: string, key: string): ClientState => {
 
 	return client;
 };
+
+const proxyMap = new Map<string, Map<string, Client>>();
+
+export const setClientFor = (
+	method: string,
+	identifier: string,
+	client: Client,
+): void => {
+	const methodMap = proxyMap.get(method) || new Map();
+
+	proxyMap.set(method, methodMap);
+	methodMap.set(identifier, client);
+};
+
+export const getClientFor = (method: string, identifier: string): Client => {
+	const methodMap = proxyMap.get(method);
+	if (!methodMap) throw new Error(`No clients registered for method ${method}`);
+
+	const client = methodMap.get(identifier);
+	if (!client) throw new Error(`Client not found for ${method}:${identifier}`);
+
+	return client;
+};
