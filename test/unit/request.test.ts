@@ -8,6 +8,7 @@ import {
 	test,
 } from "bun:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import * as dataModule from "../../src/data";
 import { getRequestCache } from "../../src/data";
@@ -188,21 +189,36 @@ describe("listRequestHandler", () => {
 		} as unknown as Client,
 		transport: Promise.resolve(undefined),
 	};
-
+	const mockMethodNotFoundClient: ClientState = {
+		name: "method-not-found-client",
+		client: {
+			request: mock(() =>
+				Promise.reject({
+					message: "Method not found",
+					code: ErrorCode.MethodNotFound,
+					name: "McpError",
+				}),
+			),
+		} as unknown as Client,
+		transport: Promise.resolve(undefined),
+	};
 	let mockGetAllClients: ReturnType<typeof spyOn>;
 	let mockLoggerDebug: ReturnType<typeof spyOn>;
 	let mockLoggerError: ReturnType<typeof spyOn>;
+	let mockLoggerWarn: ReturnType<typeof spyOn>;
 
 	beforeEach(() => {
 		mockGetAllClients = spyOn(dataModule, "getAllClients");
 		mockLoggerDebug = spyOn(logger, "debug");
 		mockLoggerError = spyOn(logger, "error");
+		mockLoggerWarn = spyOn(logger, "warn");
 	});
 
 	afterEach(() => {
 		mockGetAllClients.mockRestore();
 		mockLoggerDebug.mockRestore();
 		mockLoggerError.mockRestore();
+		mockLoggerWarn.mockRestore();
 	});
 
 	test("should handle errors from clients gracefully", async () => {
@@ -450,5 +466,30 @@ describe("listRequestHandler", () => {
 		expect(mockLoggerDebug).toHaveBeenCalledWith(
 			`Collected ${method} from ${testClientName}`,
 		);
+	});
+
+	test("should handle McpError with MethodNotFound code by logging warning", async () => {
+		// Arrange
+		const method = "test/list";
+		const mockMethodNotFoundError = new McpError(
+			ErrorCode.MethodNotFound,
+			"Method not found",
+		);
+		mockMethodNotFoundClient.client.request = mock(() =>
+			Promise.reject(mockMethodNotFoundError),
+		);
+		mockGetAllClients.mockReturnValue([mockMethodNotFoundClient]);
+		const processFunction = (client: ClientState, item: unknown) => {
+			return { clientName: client.name, ...(item as object) };
+		};
+		const handler = listRequestHandler(mockSchema, mockConfig, processFunction);
+
+		// Act
+		const result = await handler({ method });
+
+		// Assert
+		expect(result.results).toBeEmpty();
+		expect(mockLoggerWarn).toHaveBeenCalled();
+		expect(mockLoggerError).not.toHaveBeenCalled();
 	});
 });

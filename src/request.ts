@@ -1,3 +1,4 @@
+import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import type { z } from "zod";
 import { getAllClients, getRequestCache, setRequestCache } from "./data";
 import { logger } from "./logger";
@@ -61,10 +62,17 @@ export function listRequestHandler<
 									})
 								: [];
 						} catch (error) {
-							log.error(
-								`Error collecting ${method} from ${client.name}`,
-								error,
-							);
+							if (
+								error instanceof McpError &&
+								error.code === ErrorCode.MethodNotFound
+							) {
+								log.warn(`Method ${method} not found in ${client.name}`);
+							} else {
+								log.error(
+									`Error collecting ${method} from ${client.name}`,
+									error,
+								);
+							}
 							return [];
 						}
 					}),
