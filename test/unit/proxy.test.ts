@@ -1,4 +1,5 @@
-import * as sdkModule from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
 	afterEach,
 	beforeEach,
@@ -8,28 +9,11 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
-import * as cleanupModule from "../../src/cleanup";
 import * as clientsModule from "../../src/clients";
 import * as configModule from "../../src/config";
 import * as handlersModule from "../../src/handlers";
 import { logger } from "../../src/logger";
 import { proxy } from "../../src/proxy";
-import * as serverModule from "../../src/server";
-
-class MockStdioServerTransport {
-	connect = mock(() => Promise.resolve());
-	close = mock(() => Promise.resolve());
-}
-
-let mockTransport: MockStdioServerTransport;
-let mockFetchConfiguration: ReturnType<typeof spyOn>;
-let mockCreateServer: ReturnType<typeof spyOn>;
-let mockSetRequestHandlers: ReturnType<typeof spyOn>;
-let mockConnectClients: ReturnType<typeof spyOn>;
-let mockCleanup: ReturnType<typeof spyOn>;
-let processExitSpy: ReturnType<typeof spyOn>;
-let processOnSpy: ReturnType<typeof spyOn>;
-let mockLoggerInfo: ReturnType<typeof spyOn>;
 
 describe("proxy", () => {
 	const mockConfig = {
@@ -37,100 +21,136 @@ describe("proxy", () => {
 			server1: { url: "http://example.com" },
 		},
 	};
-	let mockServerConnectLocal: ReturnType<typeof mock>;
-	let mockServerCloseLocal: ReturnType<typeof mock>;
-	interface MockServerType {
-		connect: typeof mockServerConnectLocal;
-		close: typeof mockServerCloseLocal;
-		setRequestHandler: ReturnType<typeof mock>;
-	}
-	const mockServer: MockServerType = {
-		connect: undefined as unknown as typeof mockServerConnectLocal,
-		close: undefined as unknown as typeof mockServerCloseLocal,
-		setRequestHandler: mock(() => undefined),
+	let mockTransport: {
+		connect: ReturnType<typeof mock>;
+		close: ReturnType<typeof mock>;
 	};
+	let mockServer: {
+		connect: ReturnType<typeof mock>;
+		close: ReturnType<typeof mock>;
+		setRequestHandler: ReturnType<typeof mock>;
+	};
+	let mockFetchConfiguration: ReturnType<typeof spyOn>;
+	let mockSetRequestHandlers: ReturnType<typeof spyOn>;
+	let mockConnectClients: ReturnType<typeof spyOn>;
+	let mockLoggerInfo: ReturnType<typeof spyOn>;
+	let mockLoggerError: ReturnType<typeof spyOn>;
 
 	beforeEach(() => {
-		mockTransport = new MockStdioServerTransport();
-		mockServerConnectLocal = mock(() => Promise.resolve());
-		mockServerCloseLocal = mock(() => Promise.resolve());
-		mockServer.connect = mockServerConnectLocal;
-		mockServer.close = mockServerCloseLocal;
-
+		mockTransport = {
+			connect: mock(() => Promise.resolve()),
+			close: mock(() => Promise.resolve()),
+		};
+		mockServer = {
+			connect: mock(() => Promise.resolve()),
+			close: mock(() => Promise.resolve()),
+			setRequestHandler: mock(() => undefined),
+		};
 		(
-			spyOn as unknown as <T, K extends keyof T>(
-				obj: T,
-				method: K,
-			) => { mockImplementation: (impl: T[K]) => unknown }
-		)(sdkModule, "StdioServerTransport").mockImplementation(function (
-			this: typeof mockTransport,
-			_stdin?: NodeJS.ReadableStream,
-			_stdout?: NodeJS.WritableStream,
-		) {
-			return mockTransport as unknown as InstanceType<
-				typeof sdkModule.StdioServerTransport
-			>;
-		} as unknown as typeof sdkModule.StdioServerTransport);
-
+			spyOn({ StdioServerTransport }, "StdioServerTransport") as unknown as {
+				mockImplementation: (
+					impl: () => InstanceType<typeof StdioServerTransport>,
+				) => void;
+			}
+		).mockImplementation(
+			() =>
+				mockTransport as unknown as InstanceType<typeof StdioServerTransport>,
+		);
 		mockFetchConfiguration = spyOn(
 			configModule,
 			"fetchConfiguration",
 		).mockImplementation(() => Promise.resolve(mockConfig));
-		mockCreateServer = spyOn(serverModule, "createServer").mockImplementation(
-			// @ts-ignore
-			() => mockServer,
-		);
-		mockSetRequestHandlers = spyOn(handlersModule, "setRequestHandlers");
-		mockConnectClients = spyOn(clientsModule, "connectClients");
-		mockCleanup = spyOn(cleanupModule, "cleanup").mockImplementation(() =>
-			Promise.resolve(),
-		);
+		mockSetRequestHandlers = spyOn(
+			handlersModule,
+			"setRequestHandlers",
+		).mockImplementation(() => {});
+		mockConnectClients = spyOn(
+			clientsModule,
+			"connectClients",
+		).mockImplementation(() => Promise.resolve());
 		mockLoggerInfo = spyOn(logger, "info");
-		processOnSpy = spyOn(process, "on");
-		processExitSpy = spyOn(process, "exit").mockImplementation(
-			() => undefined as never,
-		);
+		mockLoggerError = spyOn(logger, "error");
 	});
 
 	afterEach(() => {
 		mockFetchConfiguration.mockRestore();
-		mockCreateServer.mockRestore();
 		mockSetRequestHandlers.mockRestore();
 		mockConnectClients.mockRestore();
-		mockCleanup.mockRestore();
 		mockLoggerInfo.mockRestore();
-		processOnSpy.mockRestore();
-		processExitSpy.mockRestore();
+		mockLoggerError.mockRestore();
 	});
 
 	test("should set up proxy correctly", async () => {
 		// Act
-		await proxy();
+		await proxy(mockServer as unknown as Server);
 
 		// Assert
 		expect(mockFetchConfiguration).toHaveBeenCalledTimes(1);
-		expect(mockCreateServer).toHaveBeenCalledTimes(1);
 		expect(mockSetRequestHandlers).toHaveBeenCalledWith(mockServer);
-		expect(mockServerConnectLocal).toHaveBeenCalledTimes(1);
-		expect(mockServerConnectLocal).toHaveBeenCalledWith(mockTransport);
 		expect(mockConnectClients).toHaveBeenCalledWith(mockConfig);
-		expect(processOnSpy).toHaveBeenCalledWith("SIGINT", expect.any(Function));
-	});
+		expect(mockServer.connect).toHaveBeenCalledTimes(1);
+		expect(mockServer.connect).toHaveBeenCalledWith(expect.anything());
+		expect(mockLoggerInfo).toHaveBeenCalledTimes(2);
+	}, 1000);
 
-	test("should handle SIGINT correctly", async () => {
+	test("should handle connectClients error", async () => {
 		// Arrange
-		await proxy();
-		const sigintHandler = processOnSpy.mock.calls.find(
-			([event]: [string, unknown]) => event === "SIGINT",
-		)?.[1] as () => Promise<void>;
-		expect(sigintHandler).toBeDefined();
+		const testError = new Error("Failed to connect clients");
+		mockConnectClients.mockImplementation(() => Promise.reject(testError));
 
-		// Act
-		await sigintHandler();
+		// Act & Assert
+		expect(proxy(mockServer as unknown as Server)).rejects.toThrow(testError);
+		expect(mockFetchConfiguration).toHaveBeenCalledTimes(1);
+		expect(mockConnectClients).toHaveBeenCalledWith(mockConfig);
+		expect(mockServer.connect).not.toHaveBeenCalled();
+	}, 1000);
 
-		// Assert
-		expect(mockCleanup).toHaveBeenCalledTimes(1);
-		expect(mockServerCloseLocal).toHaveBeenCalledTimes(1);
-		expect(processExitSpy).toHaveBeenCalledWith(0);
-	});
+	test("should handle server connect error", async () => {
+		const testError = new Error("Failed to connect server");
+		const localMockServer = {
+			connect: mock(() => Promise.reject(testError)),
+			close: mock(() => Promise.resolve()),
+			setRequestHandler: mock(() => undefined),
+		};
+		const localFetchConfig = spyOn(
+			configModule,
+			"fetchConfiguration",
+		).mockImplementation(() => Promise.resolve(mockConfig));
+		const localSetRequestHandlers = spyOn(
+			handlersModule,
+			"setRequestHandlers",
+		).mockImplementation(() => {});
+		const localConnectClients = spyOn(
+			clientsModule,
+			"connectClients",
+		).mockImplementation(() => Promise.resolve());
+
+		try {
+			// Act
+			await proxy(localMockServer as unknown as Server);
+			expect(false).toBe(true);
+		} catch (error) {
+			// Assert
+			expect(error).toEqual(testError);
+			expect(localFetchConfig).toHaveBeenCalledTimes(1);
+			expect(localConnectClients).toHaveBeenCalledWith(mockConfig);
+			expect(localMockServer.connect).toHaveBeenCalledTimes(1);
+		}
+
+		localFetchConfig.mockRestore();
+		localSetRequestHandlers.mockRestore();
+		localConnectClients.mockRestore();
+	}, 1000);
+
+	test("should handle fetchConfiguration error", async () => {
+		// Arrange
+		const testError = new Error("Failed to fetch configuration");
+		mockFetchConfiguration.mockImplementation(() => Promise.reject(testError));
+
+		// Act & Assert
+		expect(proxy(mockServer as unknown as Server)).rejects.toThrow(testError);
+		expect(mockFetchConfiguration).toHaveBeenCalledTimes(1);
+		expect(mockConnectClients).not.toHaveBeenCalled();
+		expect(mockServer.connect).not.toHaveBeenCalled();
+	}, 1000);
 });
