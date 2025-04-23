@@ -1,30 +1,22 @@
-#!/usr/bin/env bun
-
+import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { connectClients } from "./clients";
 import { fetchConfiguration } from "./config";
-import { logger } from "./logger";
-import { createServer } from "./server";
-import { cleanup } from "./cleanup";
 import { setRequestHandlers } from "./handlers";
+import { logger } from "./logger";
 
 using log = logger;
 
-export const proxy = async () => {
+export const proxy = async (server: Server) => {
+	log.info("MCP Proxy Server starting");
+
 	const config = await fetchConfiguration();
-	const server = createServer();
 	const transport = new StdioServerTransport();
 
 	setRequestHandlers(server);
 
+	await connectClients(config);
 	await server.connect(transport);
 
-	connectClients(config);
-
-	process.on("SIGINT", async () => {
-		await cleanup();
-		await server.close();
-
-		process.exit(0);
-	});
+	log.info("MCP Proxy Server started");
 };
