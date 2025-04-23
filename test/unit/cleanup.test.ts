@@ -12,19 +12,16 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { cleanup } from "../../src/cleanup";
 import { logger } from "../../src/logger";
 import type { ClientState } from "../../src/types";
-
-const mockGetAllClientStates = mock<() => ClientState[]>(() => []);
-mock.module("../../src/data", () => ({
-	getAllClientStates: mockGetAllClientStates,
-}));
+import * as dataModule from "../../src/data";
 
 describe("cleanup", () => {
 	let loggerInfoSpy: ReturnType<typeof spyOn>;
 	let loggerDebugSpy: ReturnType<typeof spyOn>;
 	let loggerErrorSpy: ReturnType<typeof spyOn>;
+	let mockGetAllClientStates: ReturnType<typeof spyOn>;
 
 	beforeEach(() => {
-		mockGetAllClientStates.mockReset();
+		mockGetAllClientStates = spyOn(dataModule, "getAllClientStates");
 		loggerInfoSpy = spyOn(logger, "info");
 		loggerDebugSpy = spyOn(logger, "debug");
 		loggerErrorSpy = spyOn(logger, "error");
@@ -48,12 +45,12 @@ describe("cleanup", () => {
 			{
 				name: "client1",
 				client: { name: "test-client-1" } as unknown as Client,
-				transport: Promise.resolve(transport1),
+				transport: transport1,
 			},
 			{
 				name: "client2",
 				client: { name: "test-client-2" } as unknown as Client,
-				transport: Promise.resolve(transport2),
+				transport: transport2,
 			},
 		];
 		mockGetAllClientStates.mockImplementation(() => clientStates);
@@ -82,7 +79,7 @@ describe("cleanup", () => {
 			{
 				name: "client-no-transport",
 				client: { name: "test-client-no-transport" } as unknown as Client,
-				transport: Promise.resolve(undefined),
+				transport: undefined,
 			},
 		];
 		mockGetAllClientStates.mockImplementation(() => clientStates);
@@ -92,8 +89,8 @@ describe("cleanup", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, `Cleaning up 1 clients`);
-		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, `Cleaned up 1 clients`);
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, "Cleaning up 1 clients");
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, "Cleaned up 1 clients");
 		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
 	});
@@ -111,7 +108,7 @@ describe("cleanup", () => {
 			{
 				name: "client-error",
 				client: { name: "test-client-error" } as unknown as Client,
-				transport: Promise.resolve(transport),
+				transport: transport,
 			},
 		];
 		mockGetAllClientStates.mockImplementation(() => clientStates);
@@ -121,8 +118,8 @@ describe("cleanup", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, `Cleaning up 1 clients`);
-		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, `Cleaned up 1 clients`);
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, "Cleaning up 1 clients");
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, "Cleaned up 1 clients");
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Closing transport for client client-error",
 		);
@@ -134,42 +131,10 @@ describe("cleanup", () => {
 		);
 	});
 
-	test("should handle rejection when awaiting transport", async () => {
-		// Arrange
-		const mockError = new Error("Failed to get transport");
-		// Create a promise that rejects immediately with the mock error
-		function createRejectedPromise(): Promise<Transport | undefined> {
-			return Promise.reject(mockError);
-		}
-		const clientStates: ClientState[] = [
-			{
-				name: "client-transport-error",
-				client: { name: "test-client-transport-error" } as unknown as Client,
-				transport: createRejectedPromise(),
-			},
-		];
-		mockGetAllClientStates.mockImplementation(() => clientStates);
-
-		// Act
-		await cleanup();
-
-		// Assert
-		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, `Cleaning up 1 clients`);
-		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, `Cleaned up 1 clients`);
-		expect(loggerDebugSpy).not.toHaveBeenCalled();
-		expect(loggerErrorSpy).toHaveBeenCalledTimes(1);
-		expect(loggerErrorSpy).toHaveBeenCalledWith(
-			"Error closing transport for client client-transport-error",
-			mockError,
-		);
-	});
-
 	test("should handle mixed cases with some successful and some failing transports", async () => {
 		// Arrange
 		const mockCloseTransportSuccess = mock(() => Promise.resolve());
 		const mockCloseError = new Error("Failed to close transport");
-		const mockTransportError = new Error("Failed to get transport");
 		const mockCloseTransportError = mock(() => Promise.reject(mockCloseError));
 
 		// Create successful transport
@@ -190,22 +155,17 @@ describe("cleanup", () => {
 			{
 				name: "client-success",
 				client: { name: "test-client-success" } as unknown as Client,
-				transport: Promise.resolve(transportSuccess),
+				transport: transportSuccess,
 			},
 			{
 				name: "client-error",
 				client: { name: "test-client-error" } as unknown as Client,
-				transport: Promise.resolve(transportError),
+				transport: transportError,
 			},
 			{
 				name: "client-no-transport",
 				client: { name: "test-client-no-transport" } as unknown as Client,
-				transport: Promise.resolve(undefined),
-			},
-			{
-				name: "client-transport-error",
-				client: { name: "test-client-transport-error" } as unknown as Client,
-				transport: Promise.reject(mockTransportError),
+				transport: undefined,
 			},
 		];
 		mockGetAllClientStates.mockImplementation(() => clientStates);
@@ -215,8 +175,8 @@ describe("cleanup", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, `Cleaning up 4 clients`);
-		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, `Cleaned up 4 clients`);
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, "Cleaning up 3 clients");
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, "Cleaned up 3 clients");
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Closing transport for client client-success",
 		);
@@ -225,7 +185,7 @@ describe("cleanup", () => {
 		);
 		expect(mockCloseTransportSuccess).toHaveBeenCalledTimes(1);
 		expect(mockCloseTransportError).toHaveBeenCalledTimes(1);
-		expect(loggerErrorSpy).toHaveBeenCalledTimes(2);
+		expect(loggerErrorSpy).toHaveBeenCalledTimes(1);
 	});
 
 	test("should handle empty client states array", async () => {
@@ -244,7 +204,7 @@ describe("cleanup", () => {
 
 	afterEach(() => {
 		// Clean up after each test
-		mockGetAllClientStates.mockReset();
+		mockGetAllClientStates.mockRestore();
 		loggerInfoSpy.mockRestore();
 		loggerDebugSpy.mockRestore();
 		loggerErrorSpy.mockRestore();
