@@ -5,6 +5,7 @@ import {
 	getAllClientStates,
 	getAllClients,
 	getClientFor,
+	getClientVersion,
 	getKeyFor,
 	getReadMethodFor,
 	setClientFor,
@@ -435,5 +436,87 @@ describe("getReadMethodFor", () => {
 
 		// Assert
 		expect(result).toBe(method);
+	});
+});
+
+describe("getClientVersion", () => {
+	let testClientNames: string[] = [];
+
+	beforeEach(() => {
+		testClientNames = [];
+	});
+
+	test("should return empty version object when there is no infomation", () => {
+		// Arrange
+		const mockClient = {
+			getServerVersion: () => undefined,
+		} as unknown as Client;
+
+		// Act
+		const result = getClientVersion(mockClient);
+
+		// Assert
+		expect(result).toEqual({ name: "", version: "" });
+	});
+
+	test("should return version object with name when client.getServerVersion returns name", () => {
+		// Arrange
+		const versionObject = { name: "test-version", version: "1.0.0" };
+		const mockClient = {
+			getServerVersion: () => versionObject,
+		} as unknown as Client;
+
+		// Act
+		const result = getClientVersion(mockClient);
+
+		// Assert
+		expect(result).toEqual(versionObject);
+	});
+
+	test("should find client in clientsStateMap when getServerVersion doesn't return name", () => {
+		// Arrange
+		const testClientName = `test-client-${Date.now()}-version`;
+		testClientNames.push(testClientName);
+		const versionObject = { version: "1.0.0" };
+		const mockClient = {
+			getServerVersion: () => versionObject,
+		} as unknown as Client;
+		const mockTransport = Promise.resolve({
+			close: () => {},
+			start: () => Promise.resolve(),
+			send: () => Promise.resolve(),
+		} as unknown as Transport);
+		const clientState: ClientState = {
+			name: testClientName,
+			client: mockClient,
+			transport: mockTransport,
+		};
+		setClientState(testClientName, clientState);
+
+		// Act
+		const result = getClientVersion(mockClient);
+
+		// Assert
+		expect(result).toEqual({ name: testClientName, version: "1.0.0" });
+	});
+
+	afterEach(() => {
+		const mockClient = { name: "cleanup" } as unknown as Client;
+		const mockTransport = Promise.resolve({
+			close: () => {},
+			start: () => Promise.resolve(),
+			send: () => Promise.resolve(),
+		} as unknown as Transport);
+
+		for (const name of testClientNames) {
+			const cleanupState: ClientState = {
+				name: `cleaned-${name}`,
+				client: mockClient,
+				transport: mockTransport,
+			};
+			setClientState(name, cleanupState);
+		}
+
+		testClientNames = [];
 	});
 });
