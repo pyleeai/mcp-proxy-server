@@ -5,10 +5,8 @@ import {
 	getAllClientStates,
 	getAllClients,
 	getClientFor,
-	getRequestCache,
 	setClientFor,
 	setClientState,
-	setRequestCache,
 } from "../../src/data";
 import type { ClientState } from "../../src/types";
 
@@ -20,31 +18,31 @@ describe("setClientState", () => {
 	});
 
 	test("should store a client state", () => {
-			// Arrange
-			const testClientName = `test-client-${Date.now()}`;
-			testClientNames.push(testClientName);
-			const mockClient = { name: "client1" } as unknown as Client;
-			const mockTransport = Promise.resolve({
-				close: () => {},
-				start: () => Promise.resolve(),
-				send: () => Promise.resolve(),
-			} as unknown as Transport);
-			const clientState: ClientState = {
-				name: testClientName,
-				client: mockClient,
-				transport: mockTransport,
-			};
-			const clientsBefore = getAllClientStates();
+		// Arrange
+		const testClientName = `test-client-${Date.now()}`;
+		testClientNames.push(testClientName);
+		const mockClient = { name: "client1" } as unknown as Client;
+		const mockTransport = Promise.resolve({
+			close: () => {},
+			start: () => Promise.resolve(),
+			send: () => Promise.resolve(),
+		} as unknown as Transport);
+		const clientState: ClientState = {
+			name: testClientName,
+			client: mockClient,
+			transport: mockTransport,
+		};
+		const clientsBefore = getAllClientStates();
 
-			// Act
-			setClientState(testClientName, clientState);
+		// Act
+		setClientState(testClientName, clientState);
 
-			// Assert
-			const clientsAfter = getAllClientStates();
-			expect(clientsAfter.length).toBe(clientsBefore.length + 1);
-			const found = clientsAfter.find((client) => client.name === testClientName);
-			expect(found).toEqual(clientState as ClientState);
-		});
+		// Assert
+		const clientsAfter = getAllClientStates();
+		expect(clientsAfter.length).toBe(clientsBefore.length + 1);
+		const found = clientsAfter.find((client) => client.name === testClientName);
+		expect(found).toEqual(clientState as ClientState);
+	});
 
 	test("should overwrite an existing client state with the same name", () => {
 		// Arrange
@@ -238,147 +236,6 @@ describe("getAllClients", () => {
 		}
 
 		testClientNames = [];
-	});
-});
-
-describe("setRequestCache", () => {
-	const mockClientState: ClientState = {
-		name: "test-client",
-		client: {} as Client,
-		transport: Promise.resolve(undefined),
-	};
-
-	test("should map tools/list method to tools/call cache", () => {
-		// Arrange
-		const listMethod = "tools/list";
-		const callMethod = "tools/call";
-		const key = "test-key";
-
-		// Act
-		setRequestCache(listMethod, key, mockClientState);
-
-		// Assert
-		const clientState1 = {} as ClientState;
-		const clientState2 = {} as ClientState;
-		setRequestCache(callMethod, key, clientState1);
-		setRequestCache(callMethod, key, clientState2);
-	});
-
-	test("should map prompts/list method to prompts/get cache", () => {
-		// Arrange
-		const listMethod = "prompts/list";
-		const getMethod = "prompts/get";
-		const key = "test-key";
-
-		// Act
-		setRequestCache(listMethod, key, mockClientState);
-
-		// Assert
-		const clientState1 = {} as ClientState;
-		const clientState2 = {} as ClientState;
-		setRequestCache(getMethod, key, clientState1);
-		setRequestCache(getMethod, key, clientState2);
-	});
-
-	test("should map resources/call method to resources/read cache", () => {
-		// Arrange
-		const callMethod = "resources/call";
-		const readMethod = "resources/read";
-		const key = "test-key";
-
-		// Act
-		setRequestCache(callMethod, key, mockClientState);
-
-		// Assert
-		const clientState1 = {} as ClientState;
-		const clientState2 = {} as ClientState;
-		setRequestCache(readMethod, key, clientState1);
-		setRequestCache(readMethod, key, clientState2);
-	});
-
-	test("should use the method directly for non-mapped methods", () => {
-		// Arrange
-		const method = "tools/call";
-		const key = "test-key";
-
-		// Act
-		setRequestCache(method, key, mockClientState);
-
-		// Assert
-		const clientState = {} as ClientState;
-		setRequestCache(method, key, clientState);
-	});
-});
-
-describe("getRequestCache", () => {
-	const mockClientState: ClientState = {
-		name: "test-client-get-cache",
-		client: {} as Client,
-		transport: Promise.resolve(undefined),
-	};
-
-	test("should retrieve client state from tools/call cache", () => {
-		// Arrange
-		const method = "tools/call";
-		const key = `test-key-${Date.now()}`;
-		setRequestCache(method, key, mockClientState);
-
-		// Act
-		const result = getRequestCache(method, key);
-
-		// Assert
-		expect(result).toEqual(mockClientState as ClientState);
-	});
-
-	test("should retrieve client state from prompts/get cache", () => {
-		// Arrange
-		const method = "prompts/get";
-		const key = `test-key-${Date.now()}`;
-		setRequestCache(method, key, mockClientState);
-
-		// Act
-		const result = getRequestCache(method, key);
-
-		// Assert
-		expect(result).toEqual(mockClientState as ClientState);
-	});
-
-	test("should retrieve client state from resources/read cache", () => {
-		// Arrange
-		const method = "resources/read";
-		const key = `test-key-${Date.now()}`;
-		setRequestCache(method, key, mockClientState);
-
-		// Act
-		const result = getRequestCache(method, key);
-
-		// Assert
-		expect(result).toEqual(mockClientState as ClientState);
-	});
-
-	test("should retrieve client state set with mapped method name", () => {
-		// Arrange
-		const listMethod = "tools/list";
-		const callMethod = "tools/call";
-		const key = `test-key-${Date.now()}`;
-		setRequestCache(listMethod, key, mockClientState);
-
-		// Act
-		const result = getRequestCache(callMethod, key);
-
-		// Assert
-		expect(result).toEqual(mockClientState as ClientState);
-	});
-
-	test("should throw error when client is not found", () => {
-		// Arrange
-		const method = "tools/call";
-		const key = `nonexistent-key-${Date.now()}`;
-
-		// Act & Assert
-		expect(() => getRequestCache(method, key)).toThrow(
-			`Client not found for ${method}:${key}`,
-		);
 	});
 });
 
