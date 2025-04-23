@@ -63,7 +63,7 @@ describe("cleanup", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenCalledWith("Cleaning up client transports");
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, "Cleaning up 2 clients");
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Closing transport for client client1",
 		);
@@ -73,6 +73,7 @@ describe("cleanup", () => {
 		expect(mockCloseTransport1).toHaveBeenCalledTimes(1);
 		expect(mockCloseTransport2).toHaveBeenCalledTimes(1);
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, "Cleaned up 2 clients");
 	});
 
 	test("should handle client without transport", async () => {
@@ -91,7 +92,8 @@ describe("cleanup", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenCalledWith("Cleaning up client transports");
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, `Cleaning up 1 clients`);
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, `Cleaned up 1 clients`);
 		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
 	});
@@ -119,7 +121,8 @@ describe("cleanup", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenCalledWith("Cleaning up client transports");
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, `Cleaning up 1 clients`);
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, `Cleaned up 1 clients`);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Closing transport for client client-error",
 		);
@@ -152,7 +155,8 @@ describe("cleanup", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenCalledWith("Cleaning up client transports");
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, `Cleaning up 1 clients`);
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, `Cleaned up 1 clients`);
 		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(loggerErrorSpy).toHaveBeenCalledTimes(1);
 		expect(loggerErrorSpy).toHaveBeenCalledWith(
@@ -211,7 +215,8 @@ describe("cleanup", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenCalledWith("Cleaning up client transports");
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, `Cleaning up 4 clients`);
+		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, `Cleaned up 4 clients`);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Closing transport for client client-success",
 		);
@@ -232,7 +237,7 @@ describe("cleanup", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(loggerInfoSpy).toHaveBeenCalledWith("Cleaning up client transports");
+		expect(loggerInfoSpy).not.toHaveBeenCalled();
 		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
 	});

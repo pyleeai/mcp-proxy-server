@@ -4,15 +4,18 @@ import { logger } from "./logger";
 using log = logger;
 
 export const cleanup = async (): Promise<void> => {
-	log.info("Cleaning up client transports");
+	const clients = getAllClientStates();
+
+	if (clients.length > 0) {
+		log.info(`Cleaning up ${clients.length} clients`);
+	}
 
 	await Promise.allSettled(
-		getAllClientStates().map(async (client) => {
+		clients.map(async (client) => {
 			try {
 				const transport = await client.transport;
 				if (transport) {
 					log.debug(`Closing transport for client ${client.name}`);
-
 					await transport.close();
 				}
 			} catch (error) {
@@ -20,4 +23,8 @@ export const cleanup = async (): Promise<void> => {
 			}
 		}),
 	);
+
+	if (clients.length > 0) {
+		log.info(`Cleaned up ${clients.length} clients`);
+	}
 };
