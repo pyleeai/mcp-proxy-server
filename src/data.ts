@@ -1,4 +1,5 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { Implementation } from "@modelcontextprotocol/sdk/types.js";
 import type { ClientState } from "./types";
 
 const clientsStateMap = new Map<string, ClientState>();
@@ -12,6 +13,17 @@ export const getAllClientStates = (): ClientState[] =>
 
 export const getAllClients = (): Client[] =>
 	Array.from(clientsStateMap.values()).map((state) => state.client);
+
+export const getClientVersion = (client: Client): Implementation => {
+	const version = client.getServerVersion();
+	if (version?.name) return version;
+
+	for (const [name, state] of clientsStateMap)
+		if (state.client === client)
+			return { name, version: version?.version ?? "" };
+
+	return { name: "", version: "" };
+};
 
 export const getKeyFor = (method: string): string => {
 	switch (method) {
