@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { createClient } from "../../src/client";
-import type { Server } from "../../src/types";
 
 describe("createClient", () => {
 	let mockClientInstance: Record<string, unknown>;
@@ -20,11 +19,8 @@ describe("createClient", () => {
 	});
 
 	test("should work with minimal server configuration", () => {
-		// Arrange
-		const server: Server = {};
-
 		// Act
-		const client = createClient(server);
+		const client = createClient();
 
 		// Assert
 		expect(client).toBeDefined();
@@ -37,13 +33,8 @@ describe("createClient", () => {
 	});
 
 	test("should configure client with required capabilities", () => {
-		// Arrange
-		const server: Server = {
-			url: "http://example.com",
-		};
-
 		// Act
-		const client = createClient(server);
+		const client = createClient();
 
 		// Assert
 		const options = mockClientInstance.options as {
@@ -57,16 +48,8 @@ describe("createClient", () => {
 	});
 
 	test("should create a client with correct parameters", () => {
-		// Arrange
-		const server: Server = {
-			url: "http://example.com",
-			command: "test-command",
-			args: ["--arg1", "--arg2"],
-			env: ["ENV=test"],
-		};
-
 		// Act
-		const client = createClient(server);
+		const client = createClient();
 
 		// Assert
 		expect(client).toBeDefined();

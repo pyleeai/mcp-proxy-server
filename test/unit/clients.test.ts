@@ -78,16 +78,6 @@ describe("createClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(3);
 		expect(mockConnect).toHaveBeenCalledTimes(3);
 		expect(mockSetClientState).toHaveBeenCalledTimes(3);
-		expect(mockCreateClient).toHaveBeenCalledWith({
-			url: "http://server.example.com",
-		});
-		expect(mockCreateClient).toHaveBeenCalledWith({ command: "some-command" });
-		expect(mockCreateClient).toHaveBeenCalledWith({
-			command: "full-command",
-			args: ["--verbose"],
-			env: ["ENV=production"],
-			url: "http://fallback-url.example.com",
-		});
 	});
 
 	test("should create clients for each server in the configuration", () => {
@@ -107,9 +97,6 @@ describe("createClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(2);
 		expect(mockConnect).toHaveBeenCalledTimes(2);
 		expect(mockSetClientState).toHaveBeenCalledTimes(2);
-		expect(mockCreateClient).toHaveBeenCalledWith({
-			url: "http://server1.example.com",
-		});
 		expect(mockConnect).toHaveBeenCalledWith(mockClient, {
 			url: "http://server1.example.com",
 		});
@@ -117,10 +104,6 @@ describe("createClients", () => {
 			name: "server1",
 			client: mockClient,
 			transport: mockTransport,
-		});
-		expect(mockCreateClient).toHaveBeenCalledWith({
-			command: "some-command",
-			args: ["--arg1", "--arg2"],
 		});
 		expect(mockConnect).toHaveBeenCalledWith(mockClient, {
 			command: "some-command",

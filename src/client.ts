@@ -1,7 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import type { Server } from "./types";
 
-export const createClient = (server: Server): Client => {
+export const createClient = (): Client => {
 	const client = new Client(
 		{
 			name: "mcp-proxy-client",

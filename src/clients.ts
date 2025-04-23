@@ -12,7 +12,7 @@ export const createClients = (configuration: Configuration): void => {
 	log.info(`Connecting to ${servers.length} servers`);
 
 	for (const [name, server] of servers) {
-		const client = createClient(server);
+		const client = createClient();
 		const transport = connect(client, server);
 
 		setClientState(name, { name, client, transport });
