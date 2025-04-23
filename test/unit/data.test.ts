@@ -5,6 +5,8 @@ import {
 	getAllClientStates,
 	getAllClients,
 	getClientFor,
+	getKeyFor,
+	getReadMethodFor,
 	setClientFor,
 	setClientState,
 } from "../../src/data";
@@ -330,5 +332,108 @@ describe("getClientFor", () => {
 		expect(() => getClientFor(method, nonExistentName)).toThrow(
 			`Client not found for ${method}:${nonExistentName}`,
 		);
+	});
+});
+
+describe("getKeyFor", () => {
+	test("should return 'prompts' for 'prompts/list' method", () => {
+		// Arrange
+		const method = "prompts/list";
+
+		// Act
+		const result = getKeyFor(method);
+
+		// Assert
+		expect(result).toBe("prompts");
+	});
+
+	test("should return 'tools' for 'tools/list' method", () => {
+		// Arrange
+		const method = "tools/list";
+
+		// Act
+		const result = getKeyFor(method);
+
+		// Assert
+		expect(result).toBe("tools");
+	});
+
+	test("should return 'resources' for 'resources/list' method", () => {
+		// Arrange
+		const method = "resources/list";
+
+		// Act
+		const result = getKeyFor(method);
+
+		// Assert
+		expect(result).toBe("resources");
+	});
+
+	test("should return 'resourceTemplates' for 'resources/templates/list' method", () => {
+		// Arrange
+		const method = "resources/templates/list";
+
+		// Act
+		const result = getKeyFor(method);
+
+		// Assert
+		expect(result).toBe("resourceTemplates");
+	});
+
+	test("should return the original method string for unrecognized methods", () => {
+		// Arrange
+		const method = "unknown/method";
+
+		// Act
+		const result = getKeyFor(method);
+
+		// Assert
+		expect(result).toBe(method);
+	});
+});
+
+describe("getReadMethodFor", () => {
+	test("should return 'prompts/get' for 'prompts/list' method", () => {
+		// Arrange
+		const method = "prompts/list";
+
+		// Act
+		const result = getReadMethodFor(method);
+
+		// Assert
+		expect(result).toBe("prompts/get");
+	});
+
+	test("should return 'tools/call' for 'tools/list' method", () => {
+		// Arrange
+		const method = "tools/list";
+
+		// Act
+		const result = getReadMethodFor(method);
+
+		// Assert
+		expect(result).toBe("tools/call");
+	});
+
+	test("should return 'resources/read' for 'resources/list' method", () => {
+		// Arrange
+		const method = "resources/list";
+
+		// Act
+		const result = getReadMethodFor(method);
+
+		// Assert
+		expect(result).toBe("resources/read");
+	});
+
+	test("should return the original method string for unrecognized methods", () => {
+		// Arrange
+		const method = "unknown/method";
+
+		// Act
+		const result = getReadMethodFor(method);
+
+		// Assert
+		expect(result).toBe(method);
 	});
 });
