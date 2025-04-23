@@ -12,7 +12,7 @@ export const fetchConfiguration = async (): Promise<Configuration> => {
 	log.debug("Fetching configuration");
 
 	if (!CONFIGURATION_URL) {
-		fail(
+		return fail(
 			"Required environment variable CONFIGURATION_URL is not defined",
 			ConfigurationError,
 		);
@@ -21,7 +21,7 @@ export const fetchConfiguration = async (): Promise<Configuration> => {
 	try {
 		new URL(CONFIGURATION_URL);
 	} catch {
-		fail(
+		return fail(
 			"The environment variable CONFIGURATION_URL is not a valid URL",
 			ConfigurationError,
 		);
@@ -36,13 +36,17 @@ export const fetchConfiguration = async (): Promise<Configuration> => {
 		});
 	} catch (error) {
 		if (error instanceof DOMException && error.name === "AbortError") {
-			fail(
+			return fail(
 				`Timeout fetching configuration (exceeded ${timeoutMs / 1000}s)`,
 				ConfigurationError,
 				error,
 			);
 		}
-		fail("Network error fetching configuration", ConfigurationError, error);
+		return fail(
+			"Network error fetching configuration",
+			ConfigurationError,
+			error,
+		);
 	}
 
 	if (!response.ok) {
@@ -56,7 +60,7 @@ export const fetchConfiguration = async (): Promise<Configuration> => {
 	try {
 		configuration = await response.json();
 	} catch (error) {
-		fail("Failed to parse configuration", ConfigurationError, error);
+		return fail("Failed to parse configuration", ConfigurationError, error);
 	}
 
 	log.debug("Successfully loaded configuration");
