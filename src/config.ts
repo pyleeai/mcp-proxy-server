@@ -9,8 +9,6 @@ using log = logger;
 export const fetchConfiguration = async (): Promise<Configuration> => {
 	const timeoutMs = 10000;
 
-	log.debug("Fetching configuration");
-
 	if (!CONFIGURATION_URL) {
 		return fail(
 			"Required environment variable CONFIGURATION_URL is not defined",
@@ -26,6 +24,8 @@ export const fetchConfiguration = async (): Promise<Configuration> => {
 			ConfigurationError,
 		);
 	}
+
+	log.debug(`Fetching configuration from ${CONFIGURATION_URL}`);
 
 	let response: Response;
 	try {

@@ -56,7 +56,7 @@ describe("fetchConfiguration", () => {
 		expect(fetchConfiguration()).rejects.toThrow(
 			"Required environment variable CONFIGURATION_URL is not defined",
 		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith("Fetching configuration");
+		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
@@ -73,7 +73,7 @@ describe("fetchConfiguration", () => {
 		expect(fetchConfiguration()).rejects.toThrow(
 			"The environment variable CONFIGURATION_URL is not a valid URL",
 		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith("Fetching configuration");
+		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
@@ -90,7 +90,9 @@ describe("fetchConfiguration", () => {
 		expect(fetchConfiguration()).rejects.toThrow(
 			"Timeout fetching configuration (exceeded 10s)",
 		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith("Fetching configuration");
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			"Fetching configuration from https://example.com/config",
+		);
 	});
 
 	test("handles network error", () => {
@@ -103,7 +105,9 @@ describe("fetchConfiguration", () => {
 		expect(fetchConfiguration()).rejects.toThrow(
 			"Network error fetching configuration",
 		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith("Fetching configuration");
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			"Fetching configuration from https://example.com/config",
+		);
 	});
 
 	test("handles HTTP error", () => {
@@ -122,7 +126,9 @@ describe("fetchConfiguration", () => {
 		expect(fetchConfiguration()).rejects.toThrow(
 			"Error fetching configuration (404 Not Found)",
 		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith("Fetching configuration");
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			"Fetching configuration from https://example.com/config",
+		);
 	});
 
 	test("handles JSON parsing error", () => {
@@ -141,7 +147,9 @@ describe("fetchConfiguration", () => {
 		expect(fetchConfiguration()).rejects.toThrow(
 			"Failed to parse configuration",
 		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith("Fetching configuration");
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			"Fetching configuration from https://example.com/config",
+		);
 	});
 
 	test("successfully fetches and parses configuration", async () => {
@@ -170,7 +178,9 @@ describe("fetchConfiguration", () => {
 		});
 		expect(result).toEqual(VALID_CONFIGURATION);
 		expect(loggerDebugSpy).toHaveBeenCalledTimes(2);
-		expect(loggerDebugSpy).toHaveBeenCalledWith("Fetching configuration");
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			"Fetching configuration from https://example.com/config",
+		);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Successfully loaded configuration",
 		);
