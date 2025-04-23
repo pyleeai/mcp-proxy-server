@@ -13,6 +13,34 @@ export const getAllClientStates = (): ClientState[] =>
 export const getAllClients = (): Client[] =>
 	Array.from(clientsStateMap.values()).map((state) => state.client);
 
+export const getKeyFor = (method: string): string => {
+	switch (method) {
+		case "prompts/list":
+			return "prompts";
+		case "tools/list":
+			return "tools";
+		case "resources/list":
+			return "resources";
+		case "resources/templates/list":
+			return "resourceTemplates";
+		default:
+			return method;
+	}
+};
+
+export const getReadMethodFor = (method: string): string => {
+	switch (method) {
+		case "prompts/list":
+			return "prompts/get";
+		case "tools/list":
+			return "tools/call";
+		case "resources/list":
+			return "resources/read";
+		default:
+			return method;
+	}
+};
+
 const proxyMap = new Map<string, Map<string, Client>>();
 
 export const setClientFor = (
