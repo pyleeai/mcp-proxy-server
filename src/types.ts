@@ -25,5 +25,5 @@ export interface RetryOptions {
 export type ClientState = {
 	name: string;
 	client: Client;
-	transport: Promise<Transport | undefined>;
+	transport: Transport | undefined;
 };
