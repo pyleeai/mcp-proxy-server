@@ -2,7 +2,7 @@ import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as clientModule from "../../src/client";
-import { createClients } from "../../src/clients";
+import { connectClients } from "../../src/clients";
 import * as connectModule from "../../src/connect";
 import * as dataModule from "../../src/data";
 import { logger } from "../../src/logger";
@@ -46,7 +46,7 @@ describe("createClients", () => {
 		};
 
 		// Act
-		createClients(configuration);
+		connectClients(configuration);
 
 		// Assert
 		expect(mockLoggerInfo).toHaveBeenCalledWith("Connecting to 0 servers");
@@ -71,7 +71,7 @@ describe("createClients", () => {
 		};
 
 		// Act
-		createClients(configuration);
+		connectClients(configuration);
 
 		// Assert
 		expect(mockLoggerInfo).toHaveBeenCalledWith("Connecting to 3 servers");
@@ -90,7 +90,7 @@ describe("createClients", () => {
 		};
 
 		// Act
-		createClients(configuration);
+		connectClients(configuration);
 
 		// Assert
 		expect(mockLoggerInfo).toHaveBeenCalledWith("Connecting to 2 servers");

@@ -6,7 +6,7 @@ import type { Configuration } from "./types";
 
 using log = logger;
 
-export const createClients = (configuration: Configuration): void => {
+export const connectClients = (configuration: Configuration): void => {
 	const servers = Object.entries(configuration.mcpServers);
 
 	log.info(`Connecting to ${servers.length} servers`);
