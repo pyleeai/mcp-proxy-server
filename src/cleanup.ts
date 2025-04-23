@@ -13,10 +13,9 @@ export const cleanup = async (): Promise<void> => {
 	await Promise.allSettled(
 		clients.map(async (client) => {
 			try {
-				const transport = await client.transport;
-				if (transport) {
+				if (client.transport) {
 					log.debug(`Closing transport for client ${client.name}`);
-					await transport.close();
+					await client.transport.close();
 				}
 			} catch (error) {
 				log.error(`Error closing transport for client ${client.name}`, error);
