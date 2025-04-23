@@ -15,18 +15,18 @@ let mockLoggerInfo: ReturnType<typeof spyOn>;
 
 describe("createClients", () => {
 	const mockClient = { name: "mockClient" } as unknown as Client;
-	const mockTransport = Promise.resolve({
+	const mockTransport = {
 		close: () => {},
 		start: () => Promise.resolve(),
 		send: () => Promise.resolve(),
-	} as unknown as Transport);
+	} as unknown as Transport;
 
 	beforeEach(() => {
 		mockCreateClient = spyOn(clientModule, "createClient").mockImplementation(
 			() => mockClient,
 		);
-		mockConnect = spyOn(connectModule, "connect").mockImplementation(
-			() => mockTransport,
+		mockConnect = spyOn(connectModule, "connect").mockImplementation(() =>
+			Promise.resolve(mockTransport),
 		);
 		mockSetClientState = spyOn(dataModule, "setClientState");
 		mockLoggerInfo = spyOn(logger, "info");
@@ -39,14 +39,14 @@ describe("createClients", () => {
 		mockLoggerInfo.mockRestore();
 	});
 
-	test("should handle empty configuration with no servers", () => {
+	test("should handle empty configuration with no servers", async () => {
 		// Arrange
 		const configuration: Configuration = {
 			mcpServers: {},
 		};
 
 		// Act
-		connectClients(configuration);
+		await connectClients(configuration);
 
 		// Assert
 		expect(mockLoggerInfo).toHaveBeenCalledWith("Connecting to 0 servers");
@@ -55,7 +55,7 @@ describe("createClients", () => {
 		expect(mockSetClientState).not.toHaveBeenCalled();
 	});
 
-	test("should process different server types correctly", () => {
+	test("should process different server types correctly", async () => {
 		// Arrange
 		const configuration: Configuration = {
 			mcpServers: {
@@ -71,7 +71,7 @@ describe("createClients", () => {
 		};
 
 		// Act
-		connectClients(configuration);
+		await connectClients(configuration);
 
 		// Assert
 		expect(mockLoggerInfo).toHaveBeenCalledWith("Connecting to 3 servers");
@@ -80,7 +80,7 @@ describe("createClients", () => {
 		expect(mockSetClientState).toHaveBeenCalledTimes(3);
 	});
 
-	test("should create clients for each server in the configuration", () => {
+	test("should create clients for each server in the configuration", async () => {
 		// Arrange
 		const configuration: Configuration = {
 			mcpServers: {
@@ -90,7 +90,7 @@ describe("createClients", () => {
 		};
 
 		// Act
-		connectClients(configuration);
+		await connectClients(configuration);
 
 		// Assert
 		expect(mockLoggerInfo).toHaveBeenCalledWith("Connecting to 2 servers");
