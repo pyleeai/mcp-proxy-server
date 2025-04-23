@@ -65,7 +65,7 @@ export const prefix = <U extends object, K extends keyof U = keyof U>(
 	resourceOrValue: U | string | undefined,
 	field?: K,
 ): U | string => {
-	const prefixString = (value?: string): string => `[${prefix}] ${value || ""}`;
+	const prefixString = (value?: string): string => `${prefix}${value || ""}`;
 
 	if (
 		field &&

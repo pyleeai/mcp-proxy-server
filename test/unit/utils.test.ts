@@ -234,19 +234,19 @@ describe("retry", () => {
 });
 
 describe("prefix", () => {
-	test("should prefix a string with bracket notation", () => {
+	test("should prefix a string", () => {
 		const result = prefix("TEST", "hello");
-		expect(result).toBe("[TEST] hello");
+		expect(result).toBe("TESThello");
 	});
 
 	test("should handle undefined string values", () => {
 		const result = prefix("TEST", undefined);
-		expect(result).toBe("[TEST] ");
+		expect(result).toBe("TEST");
 	});
 
 	test("should handle empty string values", () => {
 		const result = prefix("TEST", "");
-		expect(result).toBe("[TEST] ");
+		expect(result).toBe("TEST");
 	});
 
 	test("should prefix a specific field in an object", () => {
@@ -255,7 +255,7 @@ describe("prefix", () => {
 
 		expect(result).toEqual({
 			name: "John",
-			message: "[TEST] Hello World",
+			message: "TESTHello World",
 		});
 	});
 
@@ -266,7 +266,7 @@ describe("prefix", () => {
 
 		expect(result).toEqual({
 			name: "John",
-			message: "[TEST] ",
+			message: "TEST",
 		});
 	});
 
@@ -283,7 +283,7 @@ describe("prefix", () => {
 
 		expect(result).toEqual({
 			name: "John",
-			count: "[TEST] 42",
+			count: "TEST42",
 		} as typeof obj & { count: string });
 	});
 
@@ -293,12 +293,12 @@ describe("prefix", () => {
 
 		expect(result).toEqual({
 			name: "John",
-			message: "[TEST] ",
+			message: "TEST",
 		} as typeof obj & { message: string });
 	});
 
 	test("should use empty prefix if empty string provided", () => {
 		const result = prefix("", "hello");
-		expect(result).toBe("[] hello");
+		expect(result).toBe("hello");
 	});
 });
