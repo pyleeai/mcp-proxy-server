@@ -26,6 +26,7 @@ describe("clientRequest", () => {
 	let mockRequest: { method: string; params: Record<string, unknown> };
 	let mockResultSchema: z.ZodObject<z.ZodRawShape>;
 	let originalLoggerDebug: typeof logger.debug;
+	let originalLoggerWarn: typeof logger.warn;
 
 	beforeEach(() => {
 		mockRequest = { method: "getUser", params: { name: "alice" } };
@@ -35,12 +36,16 @@ describe("clientRequest", () => {
 			request: mock(),
 		};
 		originalLoggerDebug = logger.debug;
+		originalLoggerWarn = logger.warn;
 		// @ts-expect-error intentional mock
 		logger.debug = mock();
+		// @ts-expect-error intentional mock
+		logger.warn = mock();
 	});
 
 	afterEach(() => {
 		logger.debug = originalLoggerDebug;
+		logger.warn = originalLoggerWarn;
 	});
 
 	test("successfully performs the request", async () => {
@@ -65,6 +70,54 @@ describe("clientRequest", () => {
 		expect(mockClient.request).toHaveBeenCalledWith(
 			mockRequest,
 			mockResultSchema,
+		);
+	});
+
+	test("handles McpError with MethodNotFound gracefully", async () => {
+		// Arrange
+		const methodNotFoundError = new McpError(
+			ErrorCode.MethodNotFound,
+			"Method not found",
+		);
+		(mockClient.request as jest.Mock).mockRejectedValue(methodNotFoundError);
+
+		// Act
+		const result = await clientRequest(
+			mockClient,
+			mockRequest,
+			mockResultSchema,
+			"getUser",
+			"alice",
+		);
+
+		// Assert
+		expect(result).toEqual({});
+		expect(logger.warn).toHaveBeenCalledWith(
+			"Method getUser not found in TestServer",
+		);
+	});
+
+	test("handles McpError with RequestTimeout gracefully", async () => {
+		// Arrange
+		const requestTimeoutError = new McpError(
+			ErrorCode.RequestTimeout,
+			"Request timed out",
+		);
+		(mockClient.request as jest.Mock).mockRejectedValue(requestTimeoutError);
+
+		// Act
+		const result = await clientRequest(
+			mockClient,
+			mockRequest,
+			mockResultSchema,
+			"getUser",
+			"alice",
+		);
+
+		// Assert
+		expect(result).toEqual({});
+		expect(logger.warn).toHaveBeenCalledWith(
+			"Method getUser timed out in TestServer",
 		);
 	});
 

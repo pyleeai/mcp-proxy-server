@@ -33,6 +33,15 @@ export const clientRequest = async (
 		);
 		return await client.request(request, resultSchema);
 	} catch (error) {
+		if (error instanceof McpError && error.code === ErrorCode.MethodNotFound) {
+			log.warn(`Method ${method} not found in ${version?.name}`);
+			return {};
+		}
+		if (error instanceof McpError && error.code === ErrorCode.RequestTimeout) {
+			log.warn(`Method ${method} timed out in ${version?.name}`);
+			return {};
+		}
+
 		return fail(
 			`Request error with ${method}:${identifier} to ${version?.name} (${version?.version})`,
 			ClientRequestError,
