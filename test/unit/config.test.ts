@@ -18,18 +18,6 @@ mock.module(ENV_MODULE, () => ({
 	CONFIGURATION_URL: mockConfigUrl,
 }));
 
-const VALID_CONFIGURATION = {
-	version: "1.0.0",
-	models: [{ id: "test-model", name: "Test Model" }],
-	mcp: {
-		servers: {
-			server1: {
-				url: "https://example.com/server1",
-			},
-		},
-	},
-};
-
 describe("fetchConfiguration", () => {
 	let originalFetch: typeof fetch;
 	let fetchSpy: ReturnType<typeof spyOn>;
@@ -154,15 +142,50 @@ describe("fetchConfiguration", () => {
 		);
 	});
 
+	test("throws error when configuration is invalid", () => {
+		// Arrange
+		const invalidConfigurations = [
+			{},
+			{ mcp: {} },
+			{ mcp: { servers: null } },
+			{ version: "1.0.0", models: [] },
+		];
+		for (const invalidConfig of invalidConfigurations) {
+			fetchSpy.mockImplementation(() =>
+				Promise.resolve(
+					new Response(JSON.stringify(invalidConfig), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					}),
+				),
+			);
+
+			// Act & Assert
+			expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
+			expect(fetchConfiguration()).rejects.toThrow("Invalid configuration");
+		}
+	});
+
 	test("successfully fetches and parses configuration", async () => {
 		// Arrange
+		const configuration = {
+			version: "1.0.0",
+			models: [{ id: "test-model", name: "Test Model" }],
+			mcp: {
+				servers: {
+					server1: {
+						url: "https://example.com/server1",
+					},
+				},
+			},
+		};
 		mockConfigUrl = "https://example.com/config";
 		mock.module(ENV_MODULE, () => ({
 			CONFIGURATION_URL: mockConfigUrl,
 		}));
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
-				new Response(JSON.stringify(VALID_CONFIGURATION), {
+				new Response(JSON.stringify(configuration), {
 					status: 200,
 					headers: { "Content-Type": "application/json" },
 				}),
@@ -178,7 +201,7 @@ describe("fetchConfiguration", () => {
 			headers: { Accept: "application/json" },
 			signal: expect.any(AbortSignal),
 		});
-		expect(result).toEqual(VALID_CONFIGURATION);
+		expect(result).toEqual(configuration);
 		expect(loggerDebugSpy).toHaveBeenCalledTimes(2);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Fetching configuration from https://example.com/config",
