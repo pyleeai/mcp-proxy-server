@@ -14,9 +14,9 @@ describe("process", () => {
 		processExitSpy = spyOn(process, "exit").mockImplementation(
 			() => undefined as never,
 		);
-		consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
-		consoleLogSpy = spyOn(console, "log").mockImplementation(() => {});
-		loggerErrorSpy = spyOn(logger, "error").mockImplementation(() => {});
+		consoleErrorSpy = spyOn(console, "error").mockImplementation(() => "");
+		consoleLogSpy = spyOn(console, "log").mockImplementation(() => "");
+		loggerErrorSpy = spyOn(logger, "error").mockImplementation(() => "");
 	});
 
 	afterEach(() => {
