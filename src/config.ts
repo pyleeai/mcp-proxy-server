@@ -63,7 +63,7 @@ export const fetchConfiguration = async (): Promise<Configuration> => {
 		return fail("Failed to parse configuration", ConfigurationError, error);
 	}
 
-	log.debug("Successfully loaded configuration");
+	log.debug(`Successfully loaded configuration from ${CONFIGURATION_URL}`);
 
 	return configuration;
 };

@@ -14,8 +14,8 @@ export const connect = async (client: Client, server: Server) => {
 	return await retry(async () => {
 		if (server.url) {
 			try {
-				const transport = createHTTPTransport(server);
 				log.debug("Connecting using Streamable HTTP transport");
+				const transport = createHTTPTransport(server);
 				await client.connect(transport);
 				log.debug("Connected using Streamable HTTP transport");
 				return transport;
@@ -23,8 +23,8 @@ export const connect = async (client: Client, server: Server) => {
 				log.warn(
 					"Streamable HTTP connection failed, falling back to SSE transport",
 				);
-				const transport = createSSETransport(server);
 				log.debug("Connecting using SSE transport");
+				const transport = createSSETransport(server);
 				await client.connect(transport);
 				log.debug("Connected using SSE transport");
 				return transport;
@@ -32,8 +32,8 @@ export const connect = async (client: Client, server: Server) => {
 		}
 
 		if (server.command) {
-			const transport = createStdioTransport(server);
 			log.debug("Connecting using stdio transport");
+			const transport = createStdioTransport(server);
 			await client.connect(transport);
 			log.debug("Connected using stdio transport");
 			return transport;

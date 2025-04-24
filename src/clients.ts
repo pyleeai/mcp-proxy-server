@@ -14,9 +14,13 @@ export const connectClients = async (
 	log.info(`Connecting to ${servers.length} servers`);
 
 	for (const [name, server] of servers) {
+		log.debug(`Connecting to ${name} server`);
+
 		const client = createClient();
 		const transport = await connect(client, server);
 
 		setClientState(name, { name, client, transport });
+
+		log.debug(`Connected to ${name} server`);
 	}
 };

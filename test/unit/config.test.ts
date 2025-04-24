@@ -182,7 +182,7 @@ describe("fetchConfiguration", () => {
 			"Fetching configuration from https://example.com/config",
 		);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			"Successfully loaded configuration",
+			"Successfully loaded configuration from https://example.com/config",
 		);
 	});
 

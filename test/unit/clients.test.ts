@@ -12,8 +12,9 @@ let mockCreateClient: ReturnType<typeof spyOn>;
 let mockConnect: ReturnType<typeof spyOn>;
 let mockSetClientState: ReturnType<typeof spyOn>;
 let mockLoggerInfo: ReturnType<typeof spyOn>;
+let mockLoggerDebug: ReturnType<typeof spyOn>;
 
-describe("createClients", () => {
+describe("connectClients", () => {
 	const mockClient = { name: "mockClient" } as unknown as Client;
 	const mockTransport = {
 		close: () => {},
@@ -30,6 +31,7 @@ describe("createClients", () => {
 		);
 		mockSetClientState = spyOn(dataModule, "setClientState");
 		mockLoggerInfo = spyOn(logger, "info");
+		mockLoggerDebug = spyOn(logger, "debug");
 	});
 
 	afterEach(() => {
@@ -37,6 +39,7 @@ describe("createClients", () => {
 		mockConnect.mockRestore();
 		mockSetClientState.mockRestore();
 		mockLoggerInfo.mockRestore();
+		mockLoggerDebug.mockRestore();
 	});
 
 	test("should handle empty configuration with no servers", async () => {
@@ -78,6 +81,24 @@ describe("createClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(3);
 		expect(mockConnect).toHaveBeenCalledTimes(3);
 		expect(mockSetClientState).toHaveBeenCalledTimes(3);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Connecting to httpServer server",
+		);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Connected to httpServer server",
+		);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Connecting to commandServer server",
+		);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Connected to commandServer server",
+		);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Connecting to fullServer server",
+		);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Connected to fullServer server",
+		);
 	});
 
 	test("should create clients for each server in the configuration", async () => {
@@ -97,6 +118,14 @@ describe("createClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(2);
 		expect(mockConnect).toHaveBeenCalledTimes(2);
 		expect(mockSetClientState).toHaveBeenCalledTimes(2);
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Connecting to server1 server",
+		);
+		expect(mockLoggerDebug).toHaveBeenCalledWith("Connected to server1 server");
+		expect(mockLoggerDebug).toHaveBeenCalledWith(
+			"Connecting to server2 server",
+		);
+		expect(mockLoggerDebug).toHaveBeenCalledWith("Connected to server2 server");
 		expect(mockConnect).toHaveBeenCalledWith(mockClient, {
 			url: "http://server1.example.com",
 		});
