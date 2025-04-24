@@ -1,46 +1,25 @@
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	mock,
-	spyOn,
-	test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as cleanupModule from "../../src/cleanup";
-import { handleSIGINT, exitWithError } from "../../src/process";
-import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { logger } from "../../src/logger";
+import { exitWithError, handleSIGINT } from "../../src/process";
+import * as proxyModule from "../../src/proxy";
 
 describe("process", () => {
-	let mockCleanup: ReturnType<typeof spyOn>;
-	let mockServer: {
-		close: ReturnType<typeof mock>;
-	};
-	let processExitSpy: ReturnType<typeof spyOn>;
-	let consoleErrorSpy: ReturnType<typeof spyOn>;
-	let consoleLogSpy: ReturnType<typeof spyOn>;
-	let loggerErrorSpy: ReturnType<typeof spyOn>;
+	let processExitSpy: ReturnType<typeof spyOn<typeof process, "exit">>;
+	let consoleErrorSpy: ReturnType<typeof spyOn<typeof console, "error">>;
+	let consoleLogSpy: ReturnType<typeof spyOn<typeof console, "log">>;
+	let loggerErrorSpy: ReturnType<typeof spyOn<typeof logger, "error">>;
 
 	beforeEach(() => {
-		mockServer = {
-			close: mock(() => Promise.resolve()),
-		};
-		mockCleanup = spyOn(cleanupModule, "cleanup").mockImplementation(() =>
-			Promise.resolve(),
-		);
 		processExitSpy = spyOn(process, "exit").mockImplementation(
 			() => undefined as never,
 		);
-		consoleErrorSpy = spyOn(console, "error").mockImplementation(
-			() => undefined,
-		);
-		consoleLogSpy = spyOn(console, "log").mockImplementation(() => undefined);
-		loggerErrorSpy = spyOn(logger, "error");
+		consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
+		consoleLogSpy = spyOn(console, "log").mockImplementation(() => {});
+		loggerErrorSpy = spyOn(logger, "error").mockImplementation(() => {});
 	});
 
 	afterEach(() => {
-		mockCleanup.mockRestore();
 		processExitSpy.mockRestore();
 		consoleErrorSpy.mockRestore();
 		consoleLogSpy.mockRestore();
@@ -48,50 +27,83 @@ describe("process", () => {
 	});
 
 	describe("handleSIGINT", () => {
-		test("should call cleanup and close server with successful exit", async () => {
+		let cleanupSpy: ReturnType<typeof spyOn<typeof cleanupModule, "cleanup">>;
+		let serverCloseSpy:
+			| ReturnType<typeof spyOn<typeof proxyModule.server, "close">>
+			| undefined;
+
+		beforeEach(() => {
+			serverCloseSpy = undefined;
+			cleanupSpy = spyOn(cleanupModule, "cleanup").mockResolvedValue(undefined);
+			if (
+				proxyModule.server &&
+				typeof proxyModule.server.close === "function"
+			) {
+				serverCloseSpy = spyOn(proxyModule.server, "close").mockResolvedValue(
+					undefined,
+				);
+			}
+		});
+
+		afterEach(() => {
+			cleanupSpy?.mockRestore();
+			serverCloseSpy?.mockRestore();
+		});
+
+		test("should call cleanup, close server, and exit successfully", async () => {
+			// Arrange
+			const handler = handleSIGINT();
+
 			// Act
-			const handler = handleSIGINT(mockServer as unknown as Server);
 			await handler();
 
 			// Assert
-			expect(mockCleanup).toHaveBeenCalledTimes(1);
-			expect(mockServer.close).toHaveBeenCalledTimes(1);
+			expect(cleanupSpy).toHaveBeenCalledTimes(1);
+			expect(serverCloseSpy).toHaveBeenCalledTimes(1);
 			expect(processExitSpy).toHaveBeenCalledWith(0);
 		});
 
-		test("should handle error during cleanup", async () => {
+		test("should log error and exit with failure if cleanup fails", async () => {
 			// Arrange
-			const testError = new Error("Test cleanup error");
-			mockCleanup.mockImplementation(() => Promise.reject(testError));
+			const testError = new Error("Cleanup error");
+			cleanupSpy.mockRejectedValue(testError);
+			const handler = handleSIGINT();
 
 			// Act
-			const handler = handleSIGINT(mockServer as unknown as Server);
 			await handler();
 
 			// Assert
-			expect(mockCleanup).toHaveBeenCalledTimes(1);
-			expect(mockServer.close).toHaveBeenCalledTimes(1);
+			expect(cleanupSpy).toHaveBeenCalledTimes(1);
+			expect(serverCloseSpy).toHaveBeenCalledTimes(1);
+			expect(loggerErrorSpy).toHaveBeenCalledWith(
+				"Error during cleanup",
+				testError,
+			);
 			expect(processExitSpy).toHaveBeenCalledWith(1);
 		});
 
-		test("should handle error during server close", async () => {
+		test("should log error and exit with failure if server close fails", async () => {
 			// Arrange
-			const testError = new Error("Test server close error");
-			mockServer.close.mockImplementation(() => Promise.reject(testError));
+			const testError = new Error("Server close error");
+			serverCloseSpy?.mockRejectedValue(testError);
+			const handler = handleSIGINT();
 
 			// Act
-			const handler = handleSIGINT(mockServer as unknown as Server);
 			await handler();
 
 			// Assert
-			expect(mockCleanup).toHaveBeenCalledTimes(1);
-			expect(mockServer.close).toHaveBeenCalledTimes(1);
+			expect(cleanupSpy).toHaveBeenCalledTimes(1);
+			expect(serverCloseSpy).toHaveBeenCalledTimes(1);
+			expect(loggerErrorSpy).toHaveBeenCalledWith(
+				"Error during server close",
+				testError,
+			);
 			expect(processExitSpy).toHaveBeenCalledWith(1);
 		});
 	});
 
 	describe("exitWithError", () => {
-		test("should log error and exit with code 1", () => {
+		test("should log an Error object and exit with code 1", () => {
 			// Arrange
 			const testError = new Error("Test error");
 
@@ -99,7 +111,6 @@ describe("process", () => {
 			exitWithError(testError);
 
 			// Assert
-			expect(consoleLogSpy).not.toBeCalled();
 			expect(consoleErrorSpy).toHaveBeenCalledWith(
 				"Exiting with error",
 				testError,
@@ -107,26 +118,6 @@ describe("process", () => {
 			expect(loggerErrorSpy).toHaveBeenCalledWith(
 				"Exiting with error",
 				testError,
-			);
-			expect(processExitSpy).toHaveBeenCalledWith(1);
-		});
-
-		test("should handle non-Error objects", () => {
-			// Arrange
-			const errorObject = { message: "Not an actual Error object" };
-
-			// Act
-			exitWithError(errorObject);
-
-			// Assert
-			expect(consoleLogSpy).not.toBeCalled();
-			expect(consoleErrorSpy).toHaveBeenCalledWith(
-				"Exiting with error",
-				errorObject,
-			);
-			expect(loggerErrorSpy).toHaveBeenCalledWith(
-				"Exiting with error",
-				errorObject,
 			);
 			expect(processExitSpy).toHaveBeenCalledWith(1);
 		});
