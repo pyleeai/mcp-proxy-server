@@ -45,7 +45,9 @@ describe("connectClients", () => {
 	test("should handle empty configuration with no servers", async () => {
 		// Arrange
 		const configuration: Configuration = {
-			mcpServers: {},
+			mcp: {
+				servers: {},
+			},
 		};
 
 		// Act
@@ -61,14 +63,16 @@ describe("connectClients", () => {
 	test("should process different server types correctly", async () => {
 		// Arrange
 		const configuration: Configuration = {
-			mcpServers: {
-				httpServer: { url: "http://server.example.com" },
-				commandServer: { command: "some-command" },
-				fullServer: {
-					command: "full-command",
-					args: ["--verbose"],
-					env: ["ENV=production"],
-					url: "http://fallback-url.example.com",
+			mcp: {
+				servers: {
+					httpServer: { url: "http://server.example.com" },
+					commandServer: { command: "some-command" },
+					fullServer: {
+						command: "full-command",
+						args: ["--verbose"],
+						env: ["ENV=production"],
+						url: "http://fallback-url.example.com",
+					},
 				},
 			},
 		};
@@ -104,9 +108,11 @@ describe("connectClients", () => {
 	test("should create clients for each server in the configuration", async () => {
 		// Arrange
 		const configuration: Configuration = {
-			mcpServers: {
-				server1: { url: "http://server1.example.com" },
-				server2: { command: "some-command", args: ["--arg1", "--arg2"] },
+			mcp: {
+				servers: {
+					server1: { url: "http://server1.example.com" },
+					server2: { command: "some-command", args: ["--arg1", "--arg2"] },
+				},
 			},
 		};
 

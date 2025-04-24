@@ -21,9 +21,11 @@ mock.module(ENV_MODULE, () => ({
 const VALID_CONFIGURATION = {
 	version: "1.0.0",
 	models: [{ id: "test-model", name: "Test Model" }],
-	mcpServers: {
-		server1: {
-			url: "https://example.com/server1",
+	mcp: {
+		servers: {
+			server1: {
+				url: "https://example.com/server1",
+			},
 		},
 	},
 };
