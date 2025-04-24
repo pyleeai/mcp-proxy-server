@@ -89,22 +89,17 @@ export const listRequestHandler = (
 				),
 			)
 		).flatMap((result, index) => {
-			log.debug(`Result for client ${index}:`, result);
 			const client = clients[index];
-			const version = client.getServerVersion();
-			const clientName = version?.name as string;
+			const { name } = client.getServerVersion() ?? { name: "Unknown" };
 			return result.status === "fulfilled" && result.value !== undefined
 				? Object.values(result.value ?? {}).flatMap((items) =>
 						Array.isArray(items)
 							? items
+									.map((item) => prefix(`[${name}] `, item, "description"))
 									.map((item) => {
 										setClientFor(readMethod, item.name, client);
 										return item;
 									})
-									.map((item) => prefix(`${clientName}-`, item, "name"))
-									.map((item) =>
-										prefix(`[${clientName}] `, item, "description"),
-									)
 							: [],
 					)
 				: [];

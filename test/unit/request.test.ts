@@ -404,22 +404,22 @@ describe("listRequestHandler", () => {
 			items: [
 				{
 					id: "c1-item1",
-					name: "client1-Client 1 Item 1",
+					name: "Client 1 Item 1",
 					description: "[client1] ",
 				},
 				{
 					id: "c1-item2",
-					name: "client1-Client 1 Item 2",
+					name: "Client 1 Item 2",
 					description: "[client1] ",
 				},
 				{
 					id: "c2-item1",
-					name: "client2-Client 2 Item 1",
+					name: "Client 2 Item 1",
 					description: "[client2] ",
 				},
 				{
 					id: "c2-item2",
-					name: "client2-Client 2 Item 2",
+					name: "Client 2 Item 2",
 					description: "[client2] ",
 				},
 			],
@@ -439,12 +439,12 @@ describe("listRequestHandler", () => {
 			items: [
 				{
 					id: "c1-item1",
-					name: "client1-Client 1 Item 1",
+					name: "Client 1 Item 1",
 					description: "[client1] ",
 				},
 				{
 					id: "c1-item2",
-					name: "client1-Client 1 Item 2",
+					name: "Client 1 Item 2",
 					description: "[client1] ",
 				},
 			],
@@ -511,22 +511,22 @@ describe("listRequestHandler", () => {
 			items: [
 				{
 					id: "c1-item1",
-					name: "client1-Client 1 Item 1",
+					name: "Client 1 Item 1",
 					description: "[client1] ",
 				},
 				{
 					id: "c1-item2",
-					name: "client1-Client 1 Item 2",
+					name: "Client 1 Item 2",
 					description: "[client1] ",
 				},
 				{
 					id: "c2-item1",
-					name: "client2-Client 2 Item 1",
+					name: "Client 2 Item 1",
 					description: "[client2] ",
 				},
 				{
 					id: "c2-item2",
-					name: "client2-Client 2 Item 2",
+					name: "Client 2 Item 2",
 					description: "[client2] ",
 				},
 			],
