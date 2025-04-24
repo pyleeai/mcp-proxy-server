@@ -1,18 +1,22 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
-export type Server = {
+export type ServerConfiguration = {
 	command?: string;
 	args?: string[];
 	env?: string[];
 	url?: string;
 };
 
-export interface Servers {
-	mcpServers: Record<string, Server>;
+export interface ServersConfiguration {
+	servers: Record<string, ServerConfiguration>;
 }
 
-export interface Configuration extends Servers {}
+export interface MCPConfiguration {
+	mcp: ServersConfiguration;
+}
+
+export interface Configuration extends MCPConfiguration {}
 
 export interface RetryOptions {
 	initialDelay?: number;
