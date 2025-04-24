@@ -1,6 +1,6 @@
 {
 	"name": "mcp-proxy-server",
-	"module": "src/index.ts",
+	"module": "src/main.ts",
 	"type": "module",
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
