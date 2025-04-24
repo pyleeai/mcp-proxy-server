@@ -47,7 +47,7 @@ release:
 
 # Creates Darwin universal binaries.
 universal_binaries:
-  - replace: true
+  - replace: false
 
 # Enables source archives.
 source:
