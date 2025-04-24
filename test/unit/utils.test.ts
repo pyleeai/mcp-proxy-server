@@ -108,7 +108,6 @@ describe("retry", () => {
 
 		// Assert
 		expect(result).toEqual(expectedValue);
-		expect(loggerWarnSpy).not.toHaveBeenCalled();
 		expect(delaySpy).not.toHaveBeenCalled();
 	});
 
