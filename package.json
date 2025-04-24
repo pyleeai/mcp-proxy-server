@@ -2,6 +2,14 @@
 	"name": "mcp-proxy-server",
 	"module": "src/main.ts",
 	"type": "module",
+	"scripts": {
+		"lint": "biome lint",
+		"format": "biome format",
+		"check": "biome check",
+		"test": "bun test",
+		"start": "bun run ./src/main.ts",
+		"inspector": "bunx @modelcontextprotocol/inspector bun run ./src/main.ts"
+	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
 		"@types/bun": "latest"
