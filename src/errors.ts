@@ -17,3 +17,13 @@ export class ClientRequestError extends Error {
 		this.name = "ClientRequestError";
 	}
 }
+
+export class ProxyError extends Error {
+	constructor(
+		message: string,
+		public cause?: unknown,
+	) {
+		super(message, { cause });
+		this.name = "ProxyError";
+	}
+}
