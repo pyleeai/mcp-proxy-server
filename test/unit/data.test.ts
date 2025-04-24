@@ -25,11 +25,11 @@ describe("setClientState", () => {
 		const testClientName = `test-client-${Date.now()}`;
 		testClientNames.push(testClientName);
 		const mockClient = { name: "client1" } as unknown as Client;
-		const mockTransport = Promise.resolve({
+		const mockTransport = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
+		} as unknown as Transport;
 		const clientState: ClientState = {
 			name: testClientName,
 			client: mockClient,
@@ -53,16 +53,16 @@ describe("setClientState", () => {
 		testClientNames.push(testClientName);
 		const mockClient1 = { name: "client1" } as unknown as Client;
 		const mockClient2 = { name: "client2" } as unknown as Client;
-		const mockTransport1 = Promise.resolve({
+		const mockTransport1 = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
-		const mockTransport2 = Promise.resolve({
+		} as unknown as Transport;
+		const mockTransport2 = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
+		} as unknown as Transport;
 		const clientState1: ClientState = {
 			name: testClientName,
 			client: mockClient1,
@@ -91,11 +91,11 @@ describe("setClientState", () => {
 
 	afterEach(() => {
 		const mockClient = { name: "cleanup" } as unknown as Client;
-		const mockTransport = Promise.resolve({
+		const mockTransport = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
+		} as unknown as Transport;
 
 		for (const name of testClientNames) {
 			const cleanupState: ClientState = {
@@ -132,16 +132,16 @@ describe("getAllClients", () => {
 		testClientNames.push(testClientName1, testClientName2);
 		const mockClient1 = { name: "client1", id: "id1" } as unknown as Client;
 		const mockClient2 = { name: "client2", id: "id2" } as unknown as Client;
-		const mockTransport1 = Promise.resolve({
+		const mockTransport1 = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
-		const mockTransport2 = Promise.resolve({
+		} as unknown as Transport;
+		const mockTransport2 = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
+		} as unknown as Transport;
 		const clientState1: ClientState = {
 			name: testClientName1,
 			client: mockClient1,
@@ -170,11 +170,11 @@ describe("getAllClients", () => {
 		const testClientName = `test-client-${Date.now()}-array-copy-clients`;
 		testClientNames.push(testClientName);
 		const mockClient = { name: "client1", id: "test-id" } as unknown as Client;
-		const mockTransport = Promise.resolve({
+		const mockTransport = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
+		} as unknown as Transport;
 		const clientState: ClientState = {
 			name: testClientName,
 			client: mockClient,
@@ -201,11 +201,11 @@ describe("getAllClients", () => {
 			name: "extracted-client",
 			id: "extract-id",
 		} as unknown as Client;
-		const mockTransport = Promise.resolve({
+		const mockTransport = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
+		} as unknown as Transport;
 		const clientState: ClientState = {
 			name: testClientName,
 			client: mockClient,
@@ -223,11 +223,11 @@ describe("getAllClients", () => {
 
 	afterEach(() => {
 		const mockClient = { name: "cleanup" } as unknown as Client;
-		const mockTransport = Promise.resolve({
+		const mockTransport = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
+		} as unknown as Transport;
 
 		for (const name of testClientNames) {
 			const cleanupState: ClientState = {
@@ -481,11 +481,11 @@ describe("getClientVersion", () => {
 		const mockClient = {
 			getServerVersion: () => versionObject,
 		} as unknown as Client;
-		const mockTransport = Promise.resolve({
+		const mockTransport = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
+		} as unknown as Transport;
 		const clientState: ClientState = {
 			name: testClientName,
 			client: mockClient,
@@ -502,11 +502,11 @@ describe("getClientVersion", () => {
 
 	afterEach(() => {
 		const mockClient = { name: "cleanup" } as unknown as Client;
-		const mockTransport = Promise.resolve({
+		const mockTransport = {
 			close: () => {},
 			start: () => Promise.resolve(),
 			send: () => Promise.resolve(),
-		} as unknown as Transport);
+		} as unknown as Transport;
 
 		for (const name of testClientNames) {
 			const cleanupState: ClientState = {
