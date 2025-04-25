@@ -9,7 +9,9 @@ import * as proxyModule from "../../src/proxy";
 
 describe("proxy", () => {
 	const mockConfig = {
-		mcpServers: { server1: { url: "http://example.com" } },
+		mcp: {
+			servers: { server1: { url: "http://example.com" } },
+		},
 	};
 	let mockFetchConfiguration: ReturnType<typeof spyOn>;
 	let mockSetRequestHandlers: ReturnType<typeof spyOn>;

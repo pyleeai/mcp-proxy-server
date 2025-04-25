@@ -4,7 +4,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { logger } from "../../src/logger";
 import * as transport from "../../src/transport";
-import type { Server } from "../../src/types";
+import type { ServerConfiguration } from "../../src/types";
 
 describe("transport", () => {
 	let loggerDebugSpy: ReturnType<typeof spyOn>;
@@ -16,7 +16,7 @@ describe("transport", () => {
 	describe("createHTTPTransport", () => {
 		test("throws an error when URL is missing", () => {
 			// Arrange
-			const server: Server = {};
+			const server: ServerConfiguration = {};
 
 			// Act & Assert
 			expect(() => transport.createHTTPTransport(server)).toThrow();
@@ -24,7 +24,7 @@ describe("transport", () => {
 
 		test("creates a StreamableHTTPClientTransport with the correct URL", () => {
 			// Arrange
-			const server: Server = {
+			const server: ServerConfiguration = {
 				url: "http://example.com/api",
 			};
 
@@ -42,7 +42,7 @@ describe("transport", () => {
 	describe("createSSETransport", () => {
 		test("throws an error when URL is missing", () => {
 			// Arrange
-			const server: Server = {};
+			const server: ServerConfiguration = {};
 
 			// Act & Assert
 			expect(() => transport.createSSETransport(server)).toThrow();
@@ -50,7 +50,7 @@ describe("transport", () => {
 
 		test("creates an SSEClientTransport with the correct URL", () => {
 			// Arrange
-			const server: Server = {
+			const server: ServerConfiguration = {
 				url: "http://example.com/events",
 			};
 
@@ -68,7 +68,7 @@ describe("transport", () => {
 	describe("createStdioTransport", () => {
 		test("throws an error when command is missing", () => {
 			// Arrange
-			const server: Server = {};
+			const server: ServerConfiguration = {};
 
 			// Act & Assert
 			expect(() => transport.createStdioTransport(server)).toThrow();
@@ -76,7 +76,7 @@ describe("transport", () => {
 
 		test("creates a StdioClientTransport instance", () => {
 			// Arrange
-			const server: Server = {
+			const server: ServerConfiguration = {
 				command: "python",
 				args: ["-m", "server.py"],
 				env: ["API_KEY=abc123", "DEBUG=true"],

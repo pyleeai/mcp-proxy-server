@@ -5,12 +5,12 @@ import {
 	createSSETransport,
 	createStdioTransport,
 } from "./transport";
-import type { Server } from "./types";
+import type { ServerConfiguration } from "./types";
 import { retry } from "./utils";
 
 using log = logger;
 
-export const connect = async (client: Client, server: Server) => {
+export const connect = async (client: Client, server: ServerConfiguration) => {
 	return await retry(async () => {
 		if (server.url) {
 			try {

@@ -3,11 +3,11 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { logger } from "./logger";
-import type { Server } from "./types";
+import type { ServerConfiguration } from "./types";
 
 using log = logger;
 
-export const createHTTPTransport = (server: Server): Transport => {
+export const createHTTPTransport = (server: ServerConfiguration): Transport => {
 	const url = new URL(server.url as string);
 
 	log.debug(`Creating HTTP transport for ${url}`);
@@ -15,7 +15,7 @@ export const createHTTPTransport = (server: Server): Transport => {
 	return new StreamableHTTPClientTransport(url);
 };
 
-export const createSSETransport = (server: Server): Transport => {
+export const createSSETransport = (server: ServerConfiguration): Transport => {
 	const url = new URL(server.url as string);
 
 	log.debug(`Creating SSE transport for ${url}`);
@@ -23,7 +23,9 @@ export const createSSETransport = (server: Server): Transport => {
 	return new SSEClientTransport(url);
 };
 
-export const createStdioTransport = (server: Server): Transport => {
+export const createStdioTransport = (
+	server: ServerConfiguration,
+): Transport => {
 	if (!server.command) {
 		throw new Error("Server command is missing");
 	}

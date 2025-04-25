@@ -4,7 +4,7 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { connect } from "../../src/connect";
 import { logger } from "../../src/logger";
 import * as transport from "../../src/transport";
-import type { Server } from "../../src/types";
+import type { ServerConfiguration } from "../../src/types";
 import * as utils from "../../src/utils";
 
 describe("connect", () => {
@@ -73,7 +73,7 @@ describe("connect", () => {
 
 	test("successfully connects using HTTP transport when server has URL", async () => {
 		// Arrange
-		const server: Server = { url: "http://example.com/v1" };
+		const server: ServerConfiguration = { url: "http://example.com/v1" };
 
 		// Act
 		const result = await connect(mockClient, server);
@@ -88,7 +88,7 @@ describe("connect", () => {
 
 	test("falls back to SSE transport when HTTP connection fails", async () => {
 		// Arrange
-		const server: Server = { url: "http://example.com/v1" };
+		const server: ServerConfiguration = { url: "http://example.com/v1" };
 		const httpError = new Error("HTTP connection failed");
 		connectSpy.mockImplementation((transport: unknown) => {
 			if (transport === mockHTTPTransport) {
@@ -110,7 +110,7 @@ describe("connect", () => {
 
 	test("uses stdio transport when server has command", async () => {
 		// Arrange
-		const server: Server = {
+		const server: ServerConfiguration = {
 			command: "some-command",
 			args: ["--arg1", "--arg2"],
 			env: ["KEY=value"],
@@ -129,7 +129,7 @@ describe("connect", () => {
 
 	test("uses retry mechanism for connection attempts", async () => {
 		// Arrange
-		const server: Server = { url: "http://example.com/v1" };
+		const server: ServerConfiguration = { url: "http://example.com/v1" };
 
 		// Act
 		await connect(mockClient, server);
@@ -141,7 +141,7 @@ describe("connect", () => {
 
 	test("returns undefined when both HTTP and SSE transports fail and no command is available", async () => {
 		// Arrange
-		const server: Server = { url: "http://example.com/v1" };
+		const server: ServerConfiguration = { url: "http://example.com/v1" };
 		connectSpy.mockImplementation(() =>
 			Promise.reject(new Error("Connection failed")),
 		);
@@ -165,7 +165,7 @@ describe("connect", () => {
 
 	test("returns undefined when no connection method is available", async () => {
 		// Arrange
-		const server: Server = {};
+		const server: ServerConfiguration = {};
 		retrySpy.mockImplementation(async <T>(fn: () => T | Promise<T>) => {
 			try {
 				return await fn();

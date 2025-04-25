@@ -9,7 +9,7 @@ using log = logger;
 export const connectClients = async (
 	configuration: Configuration,
 ): Promise<void> => {
-	const servers = Object.entries(configuration.mcpServers);
+	const servers = Object.entries(configuration.mcp.servers);
 
 	log.info(`Connecting to ${servers.length} servers`);
 

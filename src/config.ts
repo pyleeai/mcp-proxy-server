@@ -63,6 +63,10 @@ export const fetchConfiguration = async (): Promise<Configuration> => {
 		return fail("Failed to parse configuration", ConfigurationError, error);
 	}
 
+	if (!configuration?.mcp?.servers) {
+		return fail("Invalid configuration", ConfigurationError);
+	}
+
 	log.debug(`Successfully loaded configuration from ${CONFIGURATION_URL}`);
 
 	return configuration;
