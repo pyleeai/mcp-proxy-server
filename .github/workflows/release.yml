@@ -19,6 +19,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2.0.1
+      - run: bun install
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
