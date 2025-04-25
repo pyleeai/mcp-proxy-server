@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { name, version } from "../../package.json" with { type: "json" };
 import { createServer } from "../../src/server";
 
 describe("createServer", () => {
@@ -35,8 +36,8 @@ describe("createServer", () => {
 			name: string;
 			version: string;
 		};
-		expect(serverInfo.name).toBe("mcp-proxy-server");
-		expect(serverInfo.version).toBe("1.0.0");
+		expect(serverInfo.name).toBe(name);
+		expect(serverInfo.version).toBe(version);
 	});
 
 	test("should configure server with required capabilities", () => {
@@ -60,9 +61,6 @@ describe("createServer", () => {
 
 		// Assert
 		expect(server).toBeDefined();
-		expect(mockServerInstance.server).toEqual({
-			name: "mcp-proxy-server",
-			version: "1.0.0",
-		});
+		expect(mockServerInstance.server).toEqual({ name, version });
 	});
 });
