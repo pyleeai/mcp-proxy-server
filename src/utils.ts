@@ -3,7 +3,9 @@ import type { RetryOptions } from "./types";
 
 using log = logger;
 
-export const delay = Bun.sleep;
+export const delay: (ms: number) => Promise<void> = process.versions.bun
+	? Bun.sleep
+	: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const fail = <T extends Error>(
 	message: string,
