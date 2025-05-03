@@ -3,17 +3,19 @@
 	"version": "0.5.0",
 	"type": "module",
 	"module": "src/main.ts",
+	"types": "build/index.d.ts",
 	"bin": {
 		"mcp-proxy-server": "build/main.js"
 	},
-	"files": ["build/main.js"],
+	"files": ["build"],
 	"scripts": {
 		"lint": "biome lint",
 		"format": "biome format",
 		"check": "biome check",
 		"test": "bun test",
-		"build": "bun run ./build.ts",
 		"start": "bun run ./src/main.ts",
+		"build": "bun run ./build.ts",
+		"postbuild": "tsc --project tsconfig.types.json",
 		"inspector": "bunx @modelcontextprotocol/inspector bun run ./src/main.ts"
 	},
 	"devDependencies": {
