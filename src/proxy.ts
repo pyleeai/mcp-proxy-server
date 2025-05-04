@@ -11,11 +11,11 @@ using log = logger;
 
 export const server = createServer();
 
-export const proxy = async () => {
+export const proxy = async (configurationUrl?: string) => {
 	log.info("MCP Proxy Server starting");
 
 	try {
-		const config = await fetchConfiguration();
+		const config = await fetchConfiguration(configurationUrl);
 		const transport = new StdioServerTransport();
 
 		setRequestHandlers(server);
