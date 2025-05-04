@@ -17,6 +17,7 @@
 		"start": "bun run ./src/main.ts",
 		"build": "bun run ./build.ts",
 		"postbuild": "tsc --project tsconfig.types.json",
+		"prepublishOnly": "bun run build",
 		"inspector": "bunx @modelcontextprotocol/inspector bun run ./src/main.ts"
 	},
 	"devDependencies": {
