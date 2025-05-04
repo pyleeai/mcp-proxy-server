@@ -324,4 +324,24 @@ describe("prefix", () => {
 		const result = prefix("", "hello");
 		expect(result).toBe("hello");
 	});
+	
+	test("should handle complex object prefixing", () => {
+		// Arrange
+		const complexObj = {
+			id: 123,
+			names: ["John", "Jane"],
+			details: {
+				address: "123 Main St"
+			}
+		};
+		
+		// Act
+		const result = prefix("PREFIX_", complexObj, "id");
+		
+		// Assert
+		expect(result).toEqual({
+			...complexObj,
+			id: "PREFIX_123"
+		});
+	});
 });
