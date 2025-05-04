@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import { exitWithError, handleSIGINT } from "./process";
 import { proxy } from "./proxy";

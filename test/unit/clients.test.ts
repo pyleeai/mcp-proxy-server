@@ -1,6 +1,6 @@
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as clientModule from "../../src/client";
 import { connectClients } from "../../src/clients";
 import * as connectModule from "../../src/connect";

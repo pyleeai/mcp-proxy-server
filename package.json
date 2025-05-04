@@ -1,13 +1,21 @@
 {
-	"name": "mcp-proxy-server",
-	"module": "src/main.ts",
+	"name": "@pyleeai/mcp-proxy-server",
+	"version": "0.6.0",
 	"type": "module",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"bin": {
+		"mcp-proxy-server": "dist/main.js"
+	},
+	"files": ["dist"],
 	"scripts": {
 		"lint": "biome lint",
 		"format": "biome format",
 		"check": "biome check",
 		"test": "bun test",
 		"start": "bun run ./src/main.ts",
+		"build": "bun run ./build.ts",
+		"postbuild": "tsc --project tsconfig.types.json",
 		"inspector": "bunx @modelcontextprotocol/inspector bun run ./src/main.ts"
 	},
 	"devDependencies": {

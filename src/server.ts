@@ -1,8 +1,9 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { name, version } from "../package.json" with { type: "json" };
 
 export const createServer = () => {
 	const server = new Server(
-		{ name: "mcp-proxy-server", version: "1.0.0" },
+		{ name, version },
 		{
 			capabilities: { prompts: {}, resources: { subscribe: true }, tools: {} },
 		},

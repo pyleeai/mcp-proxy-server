@@ -17,8 +17,8 @@ import { ClientRequestError } from "../../src/errors";
 import { logger } from "../../src/logger";
 import {
 	clientRequest,
-	readRequestHandler,
 	listRequestHandler,
+	readRequestHandler,
 } from "../../src/request";
 
 describe("clientRequest", () => {
