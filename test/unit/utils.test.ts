@@ -162,6 +162,29 @@ describe("retry", () => {
 		expect(loggerWarnSpy).toHaveBeenCalledTimes(4);
 		expect(delaySpy).toHaveBeenCalledTimes(3);
 	});
+	
+	test("returns immediately when maxRetries is 0", async () => {
+		// Arrange
+		const fallbackValue = { immediate: true };
+		let attempts = 0;
+		const testFn = () => {
+			attempts++;
+			throw new Error("Always fails");
+		};
+		const options = {
+			maxRetries: 0,
+			fallbackValue,
+		};
+
+		// Act
+		const result = await utils.retry(testFn, options);
+
+		// Assert
+		expect(result).toEqual(fallbackValue);
+		expect(attempts).toBe(1);
+		expect(loggerWarnSpy).toHaveBeenCalledTimes(1);
+		expect(delaySpy).not.toHaveBeenCalled();
+	});
 
 	test("uses custom retry options correctly", async () => {
 		// Arrange
