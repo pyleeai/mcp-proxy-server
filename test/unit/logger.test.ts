@@ -28,7 +28,6 @@ describe("logger coverage test", () => {
 	const testLogPath = "/path/to/log.txt";
 	const testLogDir = dirname(testLogPath);
 	let originalProcessEnv: NodeJS.ProcessEnv;
-	let originalConsoleError: typeof console.error;
 	let mockMkdirSync: ReturnType<typeof spyOn>;
 	let mockAppendFileSync: ReturnType<typeof spyOn>;
 	let mockConsoleError: ReturnType<typeof spyOn>;
@@ -40,9 +39,11 @@ describe("logger coverage test", () => {
 		originalProcessEnv = { ...process.env };
 		process.env.NODE_ENV = "test";
 		process.env.LOG_PATH = testLogPath;
-		originalConsoleError = console.error;
 		mockConsoleError = spyOn(console, "error").mockImplementation(() => "");
-		mockMkdirSync = spyOn(fs, "mkdirSync").mockImplementation(() => {});
+		mockMkdirSync = spyOn(fs, "mkdirSync").mockImplementation(
+			// Ensure return type matches: string | undefined
+			() => undefined,
+		);
 		mockAppendFileSync = spyOn(fs, "appendFileSync").mockImplementation(
 			() => {},
 		);

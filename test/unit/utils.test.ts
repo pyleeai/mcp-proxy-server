@@ -1,7 +1,32 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { logger } from "../../src/logger";
 import * as utils from "../../src/utils";
-import { prefix } from "../../src/utils";
+import { prefix, sleep } from "../../src/utils";
+
+describe("sleep", () => {
+	test("properly waits for the specified time", async () => {
+		// Arrange
+		const waitTime = 100;
+		const start = Date.now();
+
+		// Act
+		await sleep(waitTime);
+		const elapsed = Date.now() - start;
+
+		// Assert
+		expect(elapsed).toBeGreaterThanOrEqual(waitTime - 10); // Allow for small timing variance
+	});
+
+	test("resolves to undefined", async () => {
+		// Act & Assert
+		await expect(sleep(1)).resolves.toBeUndefined();
+	});
+
+	test("can handle zero milliseconds", async () => {
+		// Act & Assert
+		await expect(sleep(0)).resolves.toBeUndefined();
+	});
+});
 
 describe("delay", () => {
 	test("properly waits for the specified time", async () => {
@@ -20,6 +45,11 @@ describe("delay", () => {
 
 		// Act - Verify it can be called with no errors
 		await utils.delay(1);
+	});
+
+	test("can handle zero milliseconds", async () => {
+		// Act & Assert
+		await expect(utils.delay(0)).resolves.toBeUndefined();
 	});
 });
 
@@ -156,6 +186,30 @@ describe("retry", () => {
 		expect(attempts).toBe(4);
 		expect(loggerWarnSpy).toHaveBeenCalledTimes(4);
 		expect(delaySpy).toHaveBeenCalledTimes(3);
+	});
+
+	test("returns immediately when maxRetries is 0", async () => {
+		// Arrange
+		type TestResult = { immediate: boolean };
+		const fallbackValue: TestResult = { immediate: true };
+		let attempts = 0;
+		const testFn = (): TestResult => {
+			attempts++;
+			throw new Error("Always fails");
+		};
+		const options = {
+			maxRetries: 0,
+			fallbackValue,
+		};
+
+		// Act
+		const result = await utils.retry<TestResult>(testFn, options);
+
+		// Assert
+		expect(result).toEqual(fallbackValue);
+		expect(attempts).toBe(1);
+		expect(loggerWarnSpy).toHaveBeenCalledTimes(1);
+		expect(delaySpy).not.toHaveBeenCalled();
 	});
 
 	test("uses custom retry options correctly", async () => {
@@ -295,5 +349,25 @@ describe("prefix", () => {
 	test("should use empty prefix if empty string provided", () => {
 		const result = prefix("", "hello");
 		expect(result).toBe("hello");
+	});
+
+	test("should handle complex object prefixing", () => {
+		// Arrange
+		const complexObj = {
+			id: 123,
+			names: ["John", "Jane"],
+			details: {
+				address: "123 Main St",
+			},
+		};
+
+		// Act
+		const result = prefix("PREFIX_", complexObj, "id");
+
+		// Assert
+		expect(result).toEqual({
+			...complexObj,
+			id: "PREFIX_123",
+		} as typeof complexObj & { id: string });
 	});
 });

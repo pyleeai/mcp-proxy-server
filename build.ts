@@ -3,3 +3,5 @@ await Bun.build({
 	outdir: "./dist",
 	target: "node",
 });
+
+export {};
