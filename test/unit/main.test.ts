@@ -22,7 +22,12 @@ describe("main", () => {
 
 	beforeAll(() => {
 		mockProxy = spyOn(proxyModule, "proxy").mockImplementation(() =>
-			Promise.resolve(),
+			Promise.resolve({
+				[Symbol.dispose]: () => {
+					return async () => {
+					};
+				},
+			}),
 		);
 		mockExitWithError = spyOn(processModule, "exitWithError");
 		mockSigintHandler = mock(() => Promise.resolve() as never);

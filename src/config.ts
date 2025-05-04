@@ -6,30 +6,26 @@ import { fail } from "./utils";
 
 using log = logger;
 
-export const fetchConfiguration = async (): Promise<Configuration> => {
+export const fetchConfiguration = async (
+	configurationUrl: string | undefined = CONFIGURATION_URL,
+): Promise<Configuration> => {
 	const timeoutMs = 10000;
 
-	if (!CONFIGURATION_URL) {
-		return fail(
-			"Required environment variable CONFIGURATION_URL is not defined",
-			ConfigurationError,
-		);
+	if (!configurationUrl) {
+		return fail("No configuration URL found", ConfigurationError);
 	}
 
 	try {
-		new URL(CONFIGURATION_URL);
+		new URL(configurationUrl);
 	} catch {
-		return fail(
-			"The environment variable CONFIGURATION_URL is not a valid URL",
-			ConfigurationError,
-		);
+		return fail("The configuration URL is not valid", ConfigurationError);
 	}
 
-	log.debug(`Fetching configuration from ${CONFIGURATION_URL}`);
+	log.debug(`Fetching configuration from ${configurationUrl}`);
 
 	let response: Response;
 	try {
-		response = await fetch(CONFIGURATION_URL, {
+		response = await fetch(configurationUrl, {
 			method: "GET",
 			headers: { Accept: "application/json" },
 			signal: AbortSignal.timeout(timeoutMs),
@@ -67,7 +63,7 @@ export const fetchConfiguration = async (): Promise<Configuration> => {
 		return fail("Invalid configuration", ConfigurationError);
 	}
 
-	log.debug(`Successfully loaded configuration from ${CONFIGURATION_URL}`);
+	log.debug(`Successfully loaded configuration from ${configurationUrl}`);
 
 	return configuration;
 };

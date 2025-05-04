@@ -1,4 +1,5 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { cleanup } from "./cleanup";
 import { connectClients } from "./clients";
 import { fetchConfiguration } from "./config";
 import { ProxyError } from "./errors";
@@ -11,11 +12,11 @@ using log = logger;
 
 export const server = createServer();
 
-export const proxy = async () => {
+export const proxy = async (configurationUrl?: string) => {
 	log.info("MCP Proxy Server starting");
 
 	try {
-		const config = await fetchConfiguration();
+		const config = await fetchConfiguration(configurationUrl);
 		const transport = new StdioServerTransport();
 
 		setRequestHandlers(server);
@@ -27,4 +28,13 @@ export const proxy = async () => {
 	}
 
 	log.info("MCP Proxy Server started");
+
+	return {
+		[Symbol.dispose]: () => {
+			return async () => {
+				await cleanup();
+				await server.close();
+			};
+		},
+	};
 };

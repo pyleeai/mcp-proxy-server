@@ -43,9 +43,7 @@ describe("fetchConfiguration", () => {
 
 		// Act & Assert
 		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"Required environment variable CONFIGURATION_URL is not defined",
-		);
+		expect(fetchConfiguration()).rejects.toThrow("No configuration URL found");
 		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
@@ -61,7 +59,7 @@ describe("fetchConfiguration", () => {
 		// Act & Assert
 		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
 		expect(fetchConfiguration()).rejects.toThrow(
-			"The environment variable CONFIGURATION_URL is not a valid URL",
+			"The configuration URL is not valid",
 		);
 		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(fetchSpy).not.toHaveBeenCalled();
@@ -208,6 +206,51 @@ describe("fetchConfiguration", () => {
 		);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Successfully loaded configuration from https://example.com/config",
+		);
+	});
+
+	test("uses provided configurationUrl parameter instead of environment variable", async () => {
+		// Arrange
+		const configuration = {
+			version: "1.0.0",
+			models: [{ id: "test-model", name: "Test Model" }],
+			mcp: {
+				servers: {
+					server1: {
+						url: "https://example.com/server1",
+					},
+				},
+			},
+		};
+		mockConfigUrl = "https://example.com/default-config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+		}));
+		const customUrl = "https://example.com/custom-config";
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(JSON.stringify(configuration), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+
+		// Act
+		const result = await fetchConfiguration(customUrl);
+
+		// Assert
+		expect(fetchSpy).toHaveBeenCalledWith(customUrl, {
+			method: "GET",
+			headers: { Accept: "application/json" },
+			signal: expect.any(AbortSignal),
+		});
+		expect(result).toEqual(configuration);
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			`Fetching configuration from ${customUrl}`,
+		);
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			`Successfully loaded configuration from ${customUrl}`,
 		);
 	});
 
