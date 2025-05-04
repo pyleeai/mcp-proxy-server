@@ -190,9 +190,10 @@ describe("retry", () => {
 
 	test("returns immediately when maxRetries is 0", async () => {
 		// Arrange
-		const fallbackValue = { immediate: true };
+		type TestResult = { immediate: boolean };
+		const fallbackValue: TestResult = { immediate: true };
 		let attempts = 0;
-		const testFn = () => {
+		const testFn = (): TestResult => {
 			attempts++;
 			throw new Error("Always fails");
 		};
@@ -202,7 +203,7 @@ describe("retry", () => {
 		};
 
 		// Act
-		const result = await utils.retry(testFn, options);
+		const result = await utils.retry<TestResult>(testFn, options);
 
 		// Assert
 		expect(result).toEqual(fallbackValue);
@@ -367,6 +368,6 @@ describe("prefix", () => {
 		expect(result).toEqual({
 			...complexObj,
 			id: "PREFIX_123",
-		});
+		} as typeof complexObj & { id: string });
 	});
 });
