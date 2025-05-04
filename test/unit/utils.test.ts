@@ -1,7 +1,32 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { logger } from "../../src/logger";
 import * as utils from "../../src/utils";
-import { prefix } from "../../src/utils";
+import { prefix, sleep } from "../../src/utils";
+
+describe("sleep", () => {
+	test("properly waits for the specified time", async () => {
+		// Arrange
+		const waitTime = 100;
+		const start = Date.now();
+		
+		// Act
+		await sleep(waitTime);
+		const elapsed = Date.now() - start;
+		
+		// Assert
+		expect(elapsed).toBeGreaterThanOrEqual(waitTime - 10); // Allow for small timing variance
+	});
+	
+	test("resolves to undefined", async () => {
+		// Act & Assert
+		await expect(sleep(1)).resolves.toBeUndefined();
+	});
+	
+	test("can handle zero milliseconds", async () => {
+		// Act & Assert
+		await expect(sleep(0)).resolves.toBeUndefined();
+	});
+});
 
 describe("delay", () => {
 	test("properly waits for the specified time", async () => {
