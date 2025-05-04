@@ -1,1 +1,1 @@
-export { proxy } from './proxy';
+export { proxy as MCPProxyServer } from "./proxy";
