@@ -3,9 +3,12 @@ import type { RetryOptions } from "./types";
 
 using log = logger;
 
+export const sleep = (ms: number): Promise<void> =>
+	new Promise((resolve) => setTimeout(resolve, ms));
+
 export const delay: (ms: number) => Promise<void> = process.versions.bun
 	? Bun.sleep
-	: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+	: sleep;
 
 export const fail = <T extends Error>(
 	message: string,
