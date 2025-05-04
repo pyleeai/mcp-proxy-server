@@ -12,6 +12,7 @@
 		"lint": "biome lint",
 		"format": "biome format",
 		"check": "biome check",
+		"typecheck": "tsc --noEmit",
 		"test": "bun test",
 		"start": "bun run ./src/main.ts",
 		"build": "bun run ./build.ts",
