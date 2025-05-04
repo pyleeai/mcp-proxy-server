@@ -1,4 +1,5 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { cleanup } from "./cleanup";
 import { connectClients } from "./clients";
 import { fetchConfiguration } from "./config";
 import { ProxyError } from "./errors";
@@ -27,4 +28,13 @@ export const proxy = async (configurationUrl?: string) => {
 	}
 
 	log.info("MCP Proxy Server started");
+
+	return {
+		[Symbol.dispose]: () => {
+			return async () => {
+				await cleanup();
+				await server.close();
+			};
+		},
+	};
 };
