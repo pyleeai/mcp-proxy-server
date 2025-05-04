@@ -19,11 +19,11 @@ describe("connect", () => {
 	let mockStdioTransport: Transport;
 
 	beforeEach(() => {
-		spyOn(logger, "debug").mockImplementation(() => {});
-		spyOn(logger, "warn").mockImplementation(() => {});
-		spyOn(logger, "info").mockImplementation(() => {});
-		spyOn(logger, "error").mockImplementation(() => {});
-		spyOn(logger, "log").mockImplementation(() => {});
+		spyOn(logger, "debug").mockImplementation(() => "");
+		spyOn(logger, "warn").mockImplementation(() => "");
+		spyOn(logger, "info").mockImplementation(() => "");
+		spyOn(logger, "error").mockImplementation(() => "");
+		spyOn(logger, "log").mockImplementation(() => "");
 		mockHTTPTransport = {
 			type: "http",
 			start: () => Promise.resolve(),
