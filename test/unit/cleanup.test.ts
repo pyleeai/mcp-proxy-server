@@ -10,9 +10,9 @@ import {
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { cleanup } from "../../src/cleanup";
+import * as dataModule from "../../src/data";
 import { logger } from "../../src/logger";
 import type { ClientState } from "../../src/types";
-import * as dataModule from "../../src/data";
 
 describe("cleanup", () => {
 	let loggerInfoSpy: ReturnType<typeof spyOn>;
