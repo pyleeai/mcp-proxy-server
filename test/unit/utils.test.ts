@@ -8,20 +8,20 @@ describe("sleep", () => {
 		// Arrange
 		const waitTime = 100;
 		const start = Date.now();
-		
+
 		// Act
 		await sleep(waitTime);
 		const elapsed = Date.now() - start;
-		
+
 		// Assert
 		expect(elapsed).toBeGreaterThanOrEqual(waitTime - 10); // Allow for small timing variance
 	});
-	
+
 	test("resolves to undefined", async () => {
 		// Act & Assert
 		await expect(sleep(1)).resolves.toBeUndefined();
 	});
-	
+
 	test("can handle zero milliseconds", async () => {
 		// Act & Assert
 		await expect(sleep(0)).resolves.toBeUndefined();
@@ -46,7 +46,7 @@ describe("delay", () => {
 		// Act - Verify it can be called with no errors
 		await utils.delay(1);
 	});
-	
+
 	test("can handle zero milliseconds", async () => {
 		// Act & Assert
 		await expect(utils.delay(0)).resolves.toBeUndefined();
@@ -187,7 +187,7 @@ describe("retry", () => {
 		expect(loggerWarnSpy).toHaveBeenCalledTimes(4);
 		expect(delaySpy).toHaveBeenCalledTimes(3);
 	});
-	
+
 	test("returns immediately when maxRetries is 0", async () => {
 		// Arrange
 		const fallbackValue = { immediate: true };
@@ -349,24 +349,24 @@ describe("prefix", () => {
 		const result = prefix("", "hello");
 		expect(result).toBe("hello");
 	});
-	
+
 	test("should handle complex object prefixing", () => {
 		// Arrange
 		const complexObj = {
 			id: 123,
 			names: ["John", "Jane"],
 			details: {
-				address: "123 Main St"
-			}
+				address: "123 Main St",
+			},
 		};
-		
+
 		// Act
 		const result = prefix("PREFIX_", complexObj, "id");
-		
+
 		// Assert
 		expect(result).toEqual({
 			...complexObj,
-			id: "PREFIX_123"
+			id: "PREFIX_123",
 		});
 	});
 });
