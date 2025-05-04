@@ -21,6 +21,11 @@ describe("delay", () => {
 		// Act - Verify it can be called with no errors
 		await utils.delay(1);
 	});
+	
+	test("can handle zero milliseconds", async () => {
+		// Act & Assert
+		await expect(utils.delay(0)).resolves.toBeUndefined();
+	});
 });
 
 describe("fail", () => {
