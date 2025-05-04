@@ -1,5 +1,5 @@
 await Bun.build({
-	entrypoints: ["./src/main.ts"],
+	entrypoints: ["./src/index.ts", "./src/main.ts"],
 	outdir: "./build",
 	target: "node",
 });
