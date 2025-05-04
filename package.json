@@ -2,12 +2,12 @@
 	"name": "@pyleeai/mcp-proxy-server",
 	"version": "0.5.0",
 	"type": "module",
-	"module": "build/index.js",
-	"types": "build/index.d.ts",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
 	"bin": {
-		"mcp-proxy-server": "build/main.js"
+		"mcp-proxy-server": "dist/main.js"
 	},
-	"files": ["build"],
+	"files": ["dist"],
 	"scripts": {
 		"lint": "biome lint",
 		"format": "biome format",
