@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-	ConfigurationError,
 	ClientRequestError,
+	ConfigurationError,
 	ProxyError,
 } from "../../src/errors";
 
