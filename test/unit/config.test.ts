@@ -254,6 +254,79 @@ describe("fetchConfiguration", () => {
 		);
 	});
 
+	test("uses provided headers and merges Accept: application/json", async () => {
+		// Arrange
+		const configuration = {
+			mcp: { servers: { server1: { url: "test" } } },
+		};
+		const customHeaders = { "X-Custom-Header": "TestValue" };
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(JSON.stringify(configuration), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+
+		// Act
+		await fetchConfiguration(mockConfigUrl, customHeaders);
+
+		// Assert
+		expect(fetchSpy).toHaveBeenCalledWith(mockConfigUrl, {
+			method: "GET",
+			headers: {
+				...customHeaders,
+				Accept: "application/json",
+			},
+			signal: expect.any(AbortSignal),
+		});
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			`Fetching configuration from ${mockConfigUrl}`,
+		);
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			`Successfully loaded configuration from ${mockConfigUrl}`,
+		);
+	});
+
+	test("hardcoded Accept: application/json takes precedence over provided Accept header", async () => {
+		// Arrange
+		const configuration = {
+			mcp: { servers: { server1: { url: "test" } } },
+		};
+		const customHeaders = {
+			"X-Custom-Header": "TestValue",
+			Accept: "application/xml",
+		};
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(JSON.stringify(configuration), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+
+		// Act
+		await fetchConfiguration(mockConfigUrl, customHeaders);
+
+		// Assert
+		expect(fetchSpy).toHaveBeenCalledWith(mockConfigUrl, {
+			method: "GET",
+			headers: {
+				"X-Custom-Header": "TestValue",
+				Accept: "application/json",
+			},
+			signal: expect.any(AbortSignal),
+		});
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			`Fetching configuration from ${mockConfigUrl}`,
+		);
+		expect(loggerDebugSpy).toHaveBeenCalledWith(
+			`Successfully loaded configuration from ${mockConfigUrl}`,
+		);
+	});
+
 	afterEach(() => {
 		mockConfigUrl = "https://example.com/config";
 		mock.module(ENV_MODULE, () => ({
