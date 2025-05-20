@@ -106,7 +106,25 @@ describe("proxy", () => {
 		await proxy(customConfigUrl);
 
 		// Assert
-		expect(mockFetchConfiguration).toHaveBeenCalledWith(customConfigUrl);
+		expect(mockFetchConfiguration).toHaveBeenCalledWith(
+			customConfigUrl,
+			undefined,
+		);
+	});
+
+	test("accepts headers parameter and passes it to fetchConfiguration", async () => {
+		// Arrange
+		const customConfigUrl = "https://example.com/config.json";
+		const customHeaders = { "X-Custom-Header": "TestValue" };
+
+		// Act
+		await proxy(customConfigUrl, { headers: customHeaders });
+
+		// Assert
+		expect(mockFetchConfiguration).toHaveBeenCalledWith(
+			customConfigUrl,
+			customHeaders,
+		);
 	});
 
 	describe("error handling", () => {
