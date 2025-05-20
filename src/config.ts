@@ -8,6 +8,7 @@ using log = logger;
 
 export const fetchConfiguration = async (
 	configurationUrl: string | undefined = CONFIGURATION_URL,
+	headers?: Record<string, string>,
 ): Promise<Configuration> => {
 	const timeoutMs = 10000;
 
@@ -27,7 +28,10 @@ export const fetchConfiguration = async (
 	try {
 		response = await fetch(configurationUrl, {
 			method: "GET",
-			headers: { Accept: "application/json" },
+			headers: {
+				...headers,
+				Accept: "application/json",
+			},
 			signal: AbortSignal.timeout(timeoutMs),
 		});
 	} catch (error) {
