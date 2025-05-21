@@ -6,6 +6,7 @@ import {
 	CallToolResultSchema,
 	GetPromptRequestSchema,
 	GetPromptResultSchema,
+	InitializeRequestSchema,
 	ListPromptsRequestSchema,
 	ListPromptsResultSchema,
 	ListResourceTemplatesRequestSchema,
@@ -17,9 +18,15 @@ import {
 	ReadResourceRequestSchema,
 	ReadResourceResultSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { listRequestHandler, readRequestHandler } from "./request";
+import {
+	listRequestHandler,
+	readRequestHandler,
+	initializeRequestHandler,
+} from "./request";
 
 export const setRequestHandlers = (server: Server) => {
+	server.setRequestHandler(InitializeRequestSchema, initializeRequestHandler());
+
 	server.setRequestHandler(
 		GetPromptRequestSchema,
 		readRequestHandler(GetPromptRequestSchema, GetPromptResultSchema),

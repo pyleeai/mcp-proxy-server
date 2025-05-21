@@ -1,10 +1,14 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type {
+	InitializeRequestSchema as ActualInitializeRequestSchema,
+	InitializeResultSchema as ActualInitializeResultSchema,
 	RequestSchema,
 	ResultSchema,
+	ServerCapabilities,
 } from "@modelcontextprotocol/sdk/types.js";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import type { z } from "zod";
+import pkg from "../package.json" with { type: "json" };
 import {
 	getAllClients,
 	getClientFor,
@@ -17,6 +21,8 @@ import { logger } from "./logger";
 import { fail, prefix } from "./utils";
 
 using log = logger;
+
+const { name, version } = pkg;
 
 export const clientRequest = async (
 	client: Client,
@@ -48,6 +54,40 @@ export const clientRequest = async (
 			error,
 		);
 	}
+};
+
+export const initializeRequestHandler = () => {
+	return async (
+		request: z.infer<typeof ActualInitializeRequestSchema>,
+	): Promise<z.infer<typeof ActualInitializeResultSchema>> => {
+		const capabilities: ServerCapabilities = {
+			prompts: {},
+			tools: {},
+			resources: {},
+		};
+		const response = {
+			serverInfo: {
+				name,
+				version,
+			},
+			protocolVersion: "2025-03-26",
+			capabilities,
+		};
+
+		if (request.params.clientInfo) {
+			log.info(
+				`Received initialize request from client: ${request.params.clientInfo.name} (${request.params.clientInfo.version}) supporting MCP version ${request.params.clientInfo.mcpVersion}`,
+			);
+		} else {
+			log.info("Received initialize request from an unknown client.");
+		}
+
+		log.debug(
+			`Sending initialize response: ${JSON.stringify(response, null, 2)}`,
+		);
+
+		return response;
+	};
 };
 
 export const readRequestHandler = (
