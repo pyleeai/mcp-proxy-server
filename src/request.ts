@@ -59,15 +59,36 @@ export const readRequestHandler = (
 	): Promise<z.infer<typeof resultSchema>> => {
 		const method = request.method;
 		const identifier = request.params?.name || request.params?.uri;
-		const client = getClientFor(method, identifier as string);
 
-		return await clientRequest(
-			client,
-			request,
-			resultSchema,
-			method,
-			identifier,
-		);
+		try {
+			const client = getClientFor(method, identifier as string);
+			return await clientRequest(
+				client,
+				request,
+				resultSchema,
+				method,
+				identifier,
+			);
+		} catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			log.warn(`[readRequestHandler] Error for ${method}:${identifier === undefined ? '(no identifier)' : identifier}: ${errorMessage}`);
+
+			if (error instanceof ClientRequestError) {
+				// This error originates from the `fail` call in `clientRequest`
+				// It indicates an issue making the downstream request AFTER a client was resolved.
+				// The message from ClientRequestError is already quite descriptive.
+				throw new McpError(ErrorCode.InternalError, error.message, { cause: error.cause as Error });
+			}
+			if (error instanceof Error) {
+				// This is likely an error from getClientFor (e.g., client not found in proxyMap)
+				// Or any other unexpected synchronous error before/during clientRequest call setup.
+				// Map these to McpError.NotFound, as the specific resource/route via proxy wasn't found.
+				throw new McpError(ErrorCode.NotFound, `Requested resource or method not found via proxy for ${method}:${identifier === undefined ? '(no identifier)' : identifier}. Original error: ${error.message}`);
+			}
+			
+			// Fallback for non-Error objects being thrown
+			throw new McpError(ErrorCode.InternalError, `An unexpected error occurred while processing request for ${method}:${identifier === undefined ? '(no identifier)' : identifier}: ${String(error)}`);
+		}
 	};
 };
 
