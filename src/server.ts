@@ -1,5 +1,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { name, version } from "../package.json" with { type: "json" };
+import pkg from "../package.json" with { type: "json" };
+
+const { name, version } = pkg;
 
 export const createServer = () => {
 	const server = new Server(
