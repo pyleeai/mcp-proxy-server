@@ -1,8 +1,8 @@
 {
 	"name": "@pyleeai/mcp-proxy-server",
-	"version": "0.8.0",
+	"version": "0.9.1",
 	"type": "module",
-	"module": "build/index.js",
+	"module": "src/index.ts",
 	"types": "build/index.d.ts",
 	"bin": {
 		"mcp-proxy-server": "build/main.js"
