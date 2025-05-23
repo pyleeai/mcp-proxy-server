@@ -5,6 +5,7 @@ import { fetchConfiguration } from "./config";
 import { ProxyError } from "./errors";
 import { setRequestHandlers } from "./handlers";
 import { logger } from "./logger";
+import { startConfigurationPolling, stopConfigurationPolling } from "./polling";
 import { createServer } from "./server";
 import { fail } from "./utils";
 
@@ -18,6 +19,8 @@ export const proxy = async (
 ) => {
 	log.info("MCP Proxy Server starting");
 
+	let stopPolling: (() => void) | null = null;
+
 	try {
 		const config = await fetchConfiguration(configurationUrl, options?.headers);
 		const transport = new StdioServerTransport();
@@ -26,6 +29,8 @@ export const proxy = async (
 
 		await connectClients(config);
 		await server.connect(transport);
+
+		stopPolling = startConfigurationPolling(configurationUrl, options, config);
 	} catch (error) {
 		fail("Failed to start MCP Proxy Server", ProxyError, error);
 	}
@@ -35,6 +40,9 @@ export const proxy = async (
 	return {
 		[Symbol.dispose]: () => {
 			return async () => {
+				if (stopPolling) {
+					stopPolling();
+				}
 				await cleanup();
 				await server.close();
 			};

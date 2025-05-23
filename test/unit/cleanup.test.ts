@@ -9,10 +9,17 @@ import {
 } from "bun:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { cleanup } from "../../src/cleanup";
 import * as dataModule from "../../src/data";
 import { logger } from "../../src/logger";
 import type { ClientState } from "../../src/types";
+
+const mockStopConfigurationPolling = mock(() => {});
+
+mock.module("../../src/polling", () => ({
+	stopConfigurationPolling: mockStopConfigurationPolling,
+}));
+
+import { cleanup } from "../../src/cleanup";
 
 describe("cleanup", () => {
 	let loggerInfoSpy: ReturnType<typeof spyOn>;
@@ -25,6 +32,7 @@ describe("cleanup", () => {
 		loggerInfoSpy = spyOn(logger, "info");
 		loggerDebugSpy = spyOn(logger, "debug");
 		loggerErrorSpy = spyOn(logger, "error");
+		mockStopConfigurationPolling.mockClear();
 	});
 
 	test("should close all client transports successfully", async () => {
@@ -59,6 +67,7 @@ describe("cleanup", () => {
 		await cleanup();
 
 		// Assert
+		expect(mockStopConfigurationPolling).toHaveBeenCalledTimes(1);
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
 		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, "Cleaning up 2 clients");
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
@@ -88,6 +97,7 @@ describe("cleanup", () => {
 		await cleanup();
 
 		// Assert
+		expect(mockStopConfigurationPolling).toHaveBeenCalledTimes(1);
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
 		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, "Cleaning up 1 clients");
 		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, "Cleaned up 1 clients");
@@ -117,6 +127,7 @@ describe("cleanup", () => {
 		await cleanup();
 
 		// Assert
+		expect(mockStopConfigurationPolling).toHaveBeenCalledTimes(1);
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
 		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, "Cleaning up 1 clients");
 		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, "Cleaned up 1 clients");
@@ -174,6 +185,7 @@ describe("cleanup", () => {
 		await cleanup();
 
 		// Assert
+		expect(mockStopConfigurationPolling).toHaveBeenCalledTimes(1);
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
 		expect(loggerInfoSpy).toHaveBeenNthCalledWith(1, "Cleaning up 3 clients");
 		expect(loggerInfoSpy).toHaveBeenNthCalledWith(2, "Cleaned up 3 clients");
@@ -196,6 +208,7 @@ describe("cleanup", () => {
 		await cleanup();
 
 		// Assert
+		expect(mockStopConfigurationPolling).toHaveBeenCalledTimes(1);
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
 		expect(loggerInfoSpy).not.toHaveBeenCalled();
 		expect(loggerDebugSpy).not.toHaveBeenCalled();

@@ -78,3 +78,10 @@ export const fetchConfiguration = async (
 
 	return configuration;
 };
+
+export const areConfigurationsEqual = (
+	config1: Configuration,
+	config2: Configuration,
+): boolean => {
+	return JSON.stringify(config1) === JSON.stringify(config2);
+};

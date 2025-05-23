@@ -1,9 +1,12 @@
 import { getAllClientStates } from "./data";
 import { logger } from "./logger";
+import { stopConfigurationPolling } from "./polling";
 
 using log = logger;
 
 export const cleanup = async (): Promise<void> => {
+	stopConfigurationPolling();
+
 	const clients = getAllClientStates();
 
 	if (clients.length > 0) {
