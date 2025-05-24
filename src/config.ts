@@ -98,7 +98,6 @@ export async function* configuration(
 				configurationUrl,
 				options?.headers,
 			);
-
 			const configChanged = !currentConfiguration || !areConfigurationsEqual(currentConfiguration, newConfiguration);
 			
 			if (configChanged) {
@@ -107,20 +106,14 @@ export async function* configuration(
 				yield newConfiguration;
 			}
 
-			// If polling is disabled, exit after first fetch
-			if (CONFIGURATION_POLL_INTERVAL <= 0) {
-				break;
-			}
-		} catch (error) {
-			log.error("Error fetching configuration", error);
-		
-			// If polling is disabled, don't retry
-			if (CONFIGURATION_POLL_INTERVAL <= 0) {
-				return;
-			}
+		} catch {
+			log.error("Error fetching configuration");
+		}
+
+		if (CONFIGURATION_POLL_INTERVAL <= 0) {
+			break;
 		}
 	
-		// Wait for next poll interval
 		await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
 	}
 }
