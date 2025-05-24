@@ -15,6 +15,7 @@ let mockGetAllClientStates: ReturnType<typeof spyOn>;
 let mockClearAllClientStates: ReturnType<typeof spyOn>;
 let mockLoggerInfo: ReturnType<typeof spyOn>;
 let mockLoggerDebug: ReturnType<typeof spyOn>;
+let mockLoggerError: ReturnType<typeof spyOn>;
 
 describe("connectClients", () => {
 	const mockClient = { name: "mockClient" } as unknown as Client;
@@ -38,6 +39,7 @@ describe("connectClients", () => {
 		mockClearAllClientStates = spyOn(dataModule, "clearAllClientStates");
 		mockLoggerInfo = spyOn(logger, "info");
 		mockLoggerDebug = spyOn(logger, "debug");
+		mockLoggerError = spyOn(logger, "error").mockImplementation(() => "");
 	});
 
 	afterEach(() => {
@@ -48,6 +50,7 @@ describe("connectClients", () => {
 		mockClearAllClientStates.mockRestore();
 		mockLoggerInfo.mockRestore();
 		mockLoggerDebug.mockRestore();
+		mockLoggerError.mockRestore();
 	});
 
 	test("should handle empty configuration with no servers", async () => {
@@ -286,5 +289,102 @@ describe("connectClients", () => {
 		expect(duration).toBeLessThan(200); // Allow some buffer for test execution
 		expect(mockConnect).toHaveBeenCalledTimes(3);
 		expect(mockSetClientState).toHaveBeenCalledTimes(3);
+	});
+
+	test("should handle individual client connection failures without blocking others", async () => {
+		// Arrange
+		let connectCallCount = 0;
+		mockConnect.mockImplementation(() => {
+			connectCallCount++;
+			if (connectCallCount === 2) {
+				return Promise.reject(new Error("Connection failed for server2"));
+			}
+			return Promise.resolve(mockTransport);
+		});
+
+		mockLoggerError.mockClear();
+
+		const configuration: Configuration = {
+			mcp: {
+				servers: {
+					server1: { url: "http://server1.example.com" },
+					server2: { url: "http://server2.example.com" },
+					server3: { url: "http://server3.example.com" },
+				},
+			},
+		};
+
+		// Act
+		await connectClients(configuration);
+
+		// Assert
+		expect(mockConnect).toHaveBeenCalledTimes(3);
+		expect(mockSetClientState).toHaveBeenCalledTimes(2); // Only 2 successful connections
+		expect(mockLoggerError).toHaveBeenCalledWith("Failed to connect to client", expect.any(Error));
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 2/3 servers");
+
+	});
+
+	test("should continue when all client connections fail", async () => {
+		// Arrange
+		mockConnect.mockImplementation(() => {
+			return Promise.reject(new Error("All connections failed"));
+		});
+
+		mockLoggerError.mockClear();
+
+		const configuration: Configuration = {
+			mcp: {
+				servers: {
+					server1: { url: "http://server1.example.com" },
+					server2: { url: "http://server2.example.com" },
+				},
+			},
+		};
+
+		// Act
+		await connectClients(configuration);
+
+		// Assert
+		expect(mockConnect).toHaveBeenCalledTimes(2);
+		expect(mockSetClientState).not.toHaveBeenCalled();
+		expect(mockLoggerError).toHaveBeenCalledTimes(2);
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 0/2 servers");
+
+	});
+
+	test("should handle mixed success and failure scenarios gracefully", async () => {
+		// Arrange
+		let connectCallCount = 0;
+		mockConnect.mockImplementation(() => {
+			connectCallCount++;
+			if (connectCallCount === 1 || connectCallCount === 4) {
+				return Promise.reject(new Error(`Connection failed for server${connectCallCount}`));
+			}
+			return Promise.resolve(mockTransport);
+		});
+
+		mockLoggerError.mockClear();
+
+		const configuration: Configuration = {
+			mcp: {
+				servers: {
+					server1: { url: "http://server1.example.com" },
+					server2: { url: "http://server2.example.com" },
+					server3: { url: "http://server3.example.com" },
+					server4: { url: "http://server4.example.com" },
+				},
+			},
+		};
+
+		// Act
+		await connectClients(configuration);
+
+		// Assert
+		expect(mockConnect).toHaveBeenCalledTimes(4);
+		expect(mockSetClientState).toHaveBeenCalledTimes(2); // Only 2 successful connections
+		expect(mockLoggerError).toHaveBeenCalledTimes(2); // 2 failures
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 2/4 servers");
+
 	});
 });

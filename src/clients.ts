@@ -26,7 +26,7 @@ export const connectClients = async (
 
 	log.info(`Connecting to ${servers.length} servers`);
 
-	await Promise.all(
+	const results = await Promise.allSettled(
 		servers.map(async ([name, server]) => {
 			log.debug(`Connecting to ${name} server`);
 
@@ -36,6 +36,18 @@ export const connectClients = async (
 			setClientState(name, { name, client, transport });
 
 			log.debug(`Connected to ${name} server`);
+			return name;
 		})
 	);
+
+	const successful = results.filter(result => result.status === 'fulfilled').length;
+	const failed = results.filter(result => result.status === 'rejected');
+	
+	if (failed.length > 0) {
+		for (const failure of failed) {
+			log.error("Failed to connect to client", failure.reason);
+		}
+	}
+	
+	log.info(`Successfully connected to ${successful}/${servers.length} servers`);
 };
