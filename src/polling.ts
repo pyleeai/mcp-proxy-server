@@ -1,6 +1,7 @@
-import { reconnectClients } from "./clients";
+import { connectClients } from "./clients";
 import { areConfigurationsEqual, fetchConfiguration } from "./config";
-import { CONFIGURATION_POLL_ENABLED, CONFIGURATION_POLL_INTERVAL } from "./env";
+import { clearAllClientStates, getAllClientStates } from "./data";
+import { CONFIGURATION_POLL_INTERVAL } from "./env";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
 
@@ -14,25 +15,44 @@ export const startConfigurationPolling = (
 	options?: { headers?: Record<string, string> },
 	initialConfiguration?: Configuration,
 ): (() => void) => {
-	if (!CONFIGURATION_POLL_ENABLED) {
-		log.debug("Configuration polling is disabled");
+	if (CONFIGURATION_POLL_INTERVAL <= 0) {
 		return () => {};
 	}
 
 	if (pollingInterval) {
-		log.warn("Configuration polling is already running");
-		return () => {};
+		return stopConfigurationPolling;
 	}
 
 	currentConfiguration = initialConfiguration || null;
 
-	log.info(
-		`Starting configuration polling every ${CONFIGURATION_POLL_INTERVAL}ms`,
-	);
-
 	pollingInterval = setInterval(async () => {
 		try {
-			await pollConfiguration(configurationUrl, options?.headers);
+			const newConfiguration = await fetchConfiguration(
+				configurationUrl,
+				options?.headers,
+			);
+
+			if (
+				!currentConfiguration ||
+				!areConfigurationsEqual(currentConfiguration, newConfiguration)
+			) {
+				log.info("Configuration changed, reconnecting all clients");
+
+				// Disconnect all existing clients
+				const clients = getAllClientStates();
+				await Promise.allSettled(
+					clients.map(async (client) => {
+						if (client.transport) {
+							await client.transport.close();
+						}
+					}),
+				);
+				clearAllClientStates();
+
+				// Connect to new configuration
+				await connectClients(newConfiguration);
+				currentConfiguration = newConfiguration;
+			}
 		} catch (error) {
 			log.error("Error during configuration polling", error);
 		}
@@ -43,51 +63,8 @@ export const startConfigurationPolling = (
 
 export const stopConfigurationPolling = (): void => {
 	if (pollingInterval) {
-		log.info("Stopping configuration polling");
 		clearInterval(pollingInterval);
 		pollingInterval = null;
 		currentConfiguration = null;
 	}
-};
-
-const pollConfiguration = async (
-	configurationUrl?: string,
-	headers?: Record<string, string>,
-): Promise<void> => {
-	log.debug("Polling for configuration changes");
-
-	let newConfiguration: Configuration;
-	try {
-		newConfiguration = await fetchConfiguration(configurationUrl, headers);
-	} catch (error) {
-		log.error("Failed to fetch configuration during polling", error);
-		return;
-	}
-
-	if (!currentConfiguration) {
-		log.debug(
-			"No previous configuration to compare, storing current configuration",
-		);
-		currentConfiguration = newConfiguration;
-		return;
-	}
-
-	if (areConfigurationsEqual(currentConfiguration, newConfiguration)) {
-		log.debug("Configuration unchanged");
-		return;
-	}
-
-	log.info("Configuration changes detected, reconnecting clients");
-
-	try {
-		await reconnectClients(currentConfiguration, newConfiguration);
-		currentConfiguration = newConfiguration;
-		log.info("Successfully applied configuration changes");
-	} catch (error) {
-		log.error("Failed to apply configuration changes", error);
-	}
-};
-
-export const getCurrentConfiguration = (): Configuration | null => {
-	return currentConfiguration;
 };

@@ -12,6 +12,11 @@ export const removeClientState = (name: string): void => {
 	clientsStateMap.delete(name);
 };
 
+export const clearAllClientStates = (): void => {
+	clientsStateMap.clear();
+	proxyMap.clear();
+};
+
 export const getAllClientStates = (): ClientState[] =>
 	Array.from(clientsStateMap.values());
 
