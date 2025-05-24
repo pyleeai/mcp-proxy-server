@@ -11,15 +11,24 @@ export const fetchConfiguration = async (
 	headers?: Record<string, string>,
 ): Promise<Configuration> => {
 	const timeoutMs = 10000;
+	const defaultConfiguration: Configuration = {
+		mcp: {
+			servers: {},
+		},
+	};
 
 	if (!configurationUrl) {
-		return fail("No configuration URL found", ConfigurationError);
+		log.warn("No configuration URL found, using default empty configuration");
+		return defaultConfiguration;
 	}
 
 	try {
 		new URL(configurationUrl);
 	} catch {
-		return fail("The configuration URL is not valid", ConfigurationError);
+		log.warn(
+			"The configuration URL is not valid, using default empty configuration",
+		);
+		return defaultConfiguration;
 	}
 
 	log.debug(`Fetching configuration from ${configurationUrl}`);
@@ -36,35 +45,42 @@ export const fetchConfiguration = async (
 		});
 	} catch (error) {
 		if (error instanceof DOMException && error.name === "AbortError") {
-			return fail(
-				`Timeout fetching configuration (exceeded ${timeoutMs / 1000}s)`,
-				ConfigurationError,
+			log.warn(
+				`Timeout fetching configuration (exceeded ${timeoutMs / 1000}s), using default empty configuration`,
+				error,
+			);
+		} else {
+			log.warn(
+				"Network error fetching configuration, using default empty configuration",
 				error,
 			);
 		}
-		return fail(
-			"Network error fetching configuration",
-			ConfigurationError,
-			error,
-		);
+		return defaultConfiguration;
 	}
 
 	if (!response.ok) {
-		fail(
-			`Error fetching configuration (${response.status} ${response.statusText})`,
-			ConfigurationError,
+		log.warn(
+			`Error fetching configuration (${response.status} ${response.statusText}), using default empty configuration`,
 		);
+		return defaultConfiguration;
 	}
 
 	let configuration: Configuration;
 	try {
 		configuration = await response.json();
 	} catch (error) {
-		return fail("Failed to parse configuration", ConfigurationError, error);
+		log.warn(
+			"Failed to parse configuration, using default empty configuration",
+			error,
+		);
+		return defaultConfiguration;
 	}
 
 	if (!configuration?.mcp?.servers) {
-		return fail("Invalid configuration", ConfigurationError);
+		log.warn(
+			"Invalid configuration structure, using default empty configuration",
+		);
+		return defaultConfiguration;
 	}
 
 	log.debug(`Successfully loaded configuration from ${configurationUrl}`);

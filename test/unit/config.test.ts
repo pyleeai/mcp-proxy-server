@@ -7,8 +7,7 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
-import { fetchConfiguration } from "../../src/config";
-import { ConfigurationError } from "../../src/errors";
+import { fetchConfiguration, areConfigurationsEqual } from "../../src/config";
 import { logger } from "../../src/logger";
 
 const ENV_MODULE = "../../src/env";
@@ -22,6 +21,13 @@ describe("fetchConfiguration", () => {
 	let originalFetch: typeof fetch;
 	let fetchSpy: ReturnType<typeof spyOn>;
 	let loggerDebugSpy: ReturnType<typeof spyOn>;
+	let loggerWarnSpy: ReturnType<typeof spyOn>;
+
+	const defaultConfiguration = {
+		mcp: {
+			servers: {},
+		},
+	};
 
 	beforeEach(() => {
 		mock.module(ENV_MODULE, () => ({
@@ -31,24 +37,34 @@ describe("fetchConfiguration", () => {
 		originalFetch = globalThis.fetch;
 		fetchSpy = spyOn(globalThis, "fetch");
 		loggerDebugSpy = spyOn(logger, "debug");
+		loggerWarnSpy = spyOn(logger, "warn");
+
+		// Clear all spy call history
+
+		loggerDebugSpy.mockClear();
+		loggerWarnSpy.mockClear();
 	});
 
-	test("throws error when CONFIGURATION_URL is not set", () => {
+	test("returns default configuration when CONFIGURATION_URL is not set", async () => {
 		// Arrange
 		mockConfigUrl = "";
 		mock.module(ENV_MODULE, () => ({
 			CONFIGURATION_URL: mockConfigUrl,
 		}));
-		fetchSpy.mockClear();
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow("No configuration URL found");
+		// Act
+		const result = await fetchConfiguration();
+
+		// Assert
+		expect(result).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalledWith(
+			"No configuration URL found, using default empty configuration",
+		);
 		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
-	test("throws error when CONFIGURATION_URL is not a valid URL", () => {
+	test("returns default configuration when CONFIGURATION_URL is not a valid URL", async () => {
 		// Arrange
 		mockConfigUrl = "not-a-valid-url";
 		mock.module(ENV_MODULE, () => ({
@@ -56,16 +72,19 @@ describe("fetchConfiguration", () => {
 		}));
 		fetchSpy.mockClear();
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"The configuration URL is not valid",
+		// Act
+		const result = await fetchConfiguration();
+
+		// Assert
+		expect(result).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalledWith(
+			"The configuration URL is not valid, using default empty configuration",
 		);
 		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
-	test("handles timeout error", () => {
+	test("returns default configuration on timeout error", async () => {
 		// Arrange
 		const abortError = new DOMException(
 			"The operation was aborted",
@@ -73,32 +92,40 @@ describe("fetchConfiguration", () => {
 		);
 		fetchSpy.mockImplementation(() => Promise.reject(abortError));
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"Timeout fetching configuration (exceeded 10s)",
+		// Act
+		const result = await fetchConfiguration();
+
+		// Assert
+		expect(result).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalledWith(
+			"Timeout fetching configuration (exceeded 10s), using default empty configuration",
+			abortError,
 		);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Fetching configuration from https://example.com/config",
 		);
 	});
 
-	test("handles network error", () => {
+	test("returns default configuration on network error", async () => {
 		// Arrange
 		const networkError = new Error("Network error");
 		fetchSpy.mockImplementation(() => Promise.reject(networkError));
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"Network error fetching configuration",
+		// Act
+		const result = await fetchConfiguration();
+
+		// Assert
+		expect(result).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalledWith(
+			"Network error fetching configuration, using default empty configuration",
+			networkError,
 		);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Fetching configuration from https://example.com/config",
 		);
 	});
 
-	test("handles HTTP error", () => {
+	test("returns default configuration on HTTP error", async () => {
 		// Arrange
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
@@ -109,17 +136,20 @@ describe("fetchConfiguration", () => {
 			),
 		);
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"Error fetching configuration (404 Not Found)",
+		// Act
+		const result = await fetchConfiguration();
+
+		// Assert
+		expect(result).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalledWith(
+			"Error fetching configuration (404 Not Found), using default empty configuration",
 		);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Fetching configuration from https://example.com/config",
 		);
 	});
 
-	test("handles JSON parsing error", () => {
+	test("returns default configuration on JSON parsing error", async () => {
 		// Arrange
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
@@ -130,17 +160,21 @@ describe("fetchConfiguration", () => {
 			),
 		);
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"Failed to parse configuration",
+		// Act
+		const result = await fetchConfiguration();
+
+		// Assert
+		expect(result).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalledWith(
+			"Failed to parse configuration, using default empty configuration",
+			expect.any(Error),
 		);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Fetching configuration from https://example.com/config",
 		);
 	});
 
-	test("throws error when configuration is invalid", () => {
+	test("returns default configuration when configuration is invalid", async () => {
 		// Arrange
 		const invalidConfigurations = [
 			{},
@@ -148,6 +182,7 @@ describe("fetchConfiguration", () => {
 			{ mcp: { servers: null } },
 			{ version: "1.0.0", models: [] },
 		];
+
 		for (const invalidConfig of invalidConfigurations) {
 			fetchSpy.mockImplementation(() =>
 				Promise.resolve(
@@ -158,9 +193,14 @@ describe("fetchConfiguration", () => {
 				),
 			);
 
-			// Act & Assert
-			expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-			expect(fetchConfiguration()).rejects.toThrow("Invalid configuration");
+			// Act
+			const result = await fetchConfiguration();
+
+			// Assert
+			expect(result).toEqual(defaultConfiguration);
+			expect(loggerWarnSpy).toHaveBeenCalledWith(
+				"Invalid configuration structure, using default empty configuration",
+			);
 		}
 	});
 
@@ -207,6 +247,7 @@ describe("fetchConfiguration", () => {
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Successfully loaded configuration from https://example.com/config",
 		);
+		expect(loggerWarnSpy).not.toHaveBeenCalled();
 	});
 
 	test("uses provided configurationUrl parameter instead of environment variable", async () => {
@@ -252,6 +293,7 @@ describe("fetchConfiguration", () => {
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			`Successfully loaded configuration from ${customUrl}`,
 		);
+		expect(loggerWarnSpy).not.toHaveBeenCalled();
 	});
 
 	test("uses provided headers and merges Accept: application/json", async () => {
@@ -287,6 +329,7 @@ describe("fetchConfiguration", () => {
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			`Successfully loaded configuration from ${mockConfigUrl}`,
 		);
+		expect(loggerWarnSpy).not.toHaveBeenCalled();
 	});
 
 	test("hardcoded Accept: application/json takes precedence over provided Accept header", async () => {
@@ -325,6 +368,7 @@ describe("fetchConfiguration", () => {
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			`Successfully loaded configuration from ${mockConfigUrl}`,
 		);
+		expect(loggerWarnSpy).not.toHaveBeenCalled();
 	});
 
 	afterEach(() => {
@@ -336,5 +380,95 @@ describe("fetchConfiguration", () => {
 		globalThis.fetch = originalFetch;
 		fetchSpy.mockRestore();
 		loggerDebugSpy.mockRestore();
+		loggerWarnSpy.mockRestore();
+	});
+});
+
+describe("areConfigurationsEqual", () => {
+	test("returns true for identical configurations", () => {
+		// Arrange
+		const config1 = {
+			mcp: {
+				servers: {
+					server1: { url: "https://example.com" },
+					server2: { command: "node", args: ["script.js"] },
+				},
+			},
+		};
+		const config2 = {
+			mcp: {
+				servers: {
+					server1: { url: "https://example.com" },
+					server2: { command: "node", args: ["script.js"] },
+				},
+			},
+		};
+
+		// Act
+		const result = areConfigurationsEqual(config1, config2);
+
+		// Assert
+		expect(result).toBe(true);
+	});
+
+	test("returns false for different configurations", () => {
+		// Arrange
+		const config1 = {
+			mcp: {
+				servers: {
+					server1: { url: "https://example.com" },
+				},
+			},
+		};
+		const config2 = {
+			mcp: {
+				servers: {
+					server1: { url: "https://different.com" },
+				},
+			},
+		};
+
+		// Act
+		const result = areConfigurationsEqual(config1, config2);
+
+		// Assert
+		expect(result).toBe(false);
+	});
+
+	test("returns false for configurations with different server counts", () => {
+		// Arrange
+		const config1 = {
+			mcp: {
+				servers: {
+					server1: { url: "https://example.com" },
+				},
+			},
+		};
+		const config2 = {
+			mcp: {
+				servers: {
+					server1: { url: "https://example.com" },
+					server2: { command: "node" },
+				},
+			},
+		};
+
+		// Act
+		const result = areConfigurationsEqual(config1, config2);
+
+		// Assert
+		expect(result).toBe(false);
+	});
+
+	test("returns true for empty configurations", () => {
+		// Arrange
+		const config1 = { mcp: { servers: {} } };
+		const config2 = { mcp: { servers: {} } };
+
+		// Act
+		const result = areConfigurationsEqual(config1, config2);
+
+		// Assert
+		expect(result).toBe(true);
 	});
 });
