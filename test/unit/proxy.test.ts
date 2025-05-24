@@ -197,7 +197,7 @@ describe("proxy", () => {
 
 		test("handles configPolling success during dispose", async () => {
 			// Arrange
-			let resolvePolling: () => void;
+			let resolvePolling!: () => void;
 			const pollingPromise = new Promise<void>((resolve) => {
 				resolvePolling = resolve;
 			});
