@@ -99,6 +99,7 @@ describe("proxy", () => {
 	describe("error handling", () => {
 		test("handles configuration generator error", async () => {
 			// Arrange
+			// biome-ignore lint/correctness/useYield: Test case needs generator that throws immediately
 			mockConfiguration.mockImplementation(async function* () {
 				throw new Error("Configuration error");
 			});

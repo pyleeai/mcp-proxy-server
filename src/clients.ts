@@ -43,9 +43,9 @@ export const connectClients = async (
 		(r) => r.status === "rejected",
 	) as PromiseRejectedResult[];
 
-	failures.forEach((failure) =>
-		log.error("Failed to connect to client", failure.reason),
-	);
+	for (const failure of failures) {
+		log.error("Failed to connect to client", failure.reason);
+	}
 
 	log.info(`Successfully connected to ${successful}/${servers.length} servers`);
 };
