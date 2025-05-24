@@ -14,6 +14,7 @@ describe("proxy", () => {
 	let mockServerConnect: ReturnType<typeof spyOn>;
 	let mockServerClose: ReturnType<typeof spyOn>;
 	let mockLoggerInfo: ReturnType<typeof spyOn>;
+	let mockStartConfigurationPolling: ReturnType<typeof spyOn>;
 
 	const defaultConfig = { mcp: { servers: {} } };
 
@@ -41,6 +42,10 @@ describe("proxy", () => {
 		mockLoggerInfo = spyOn(loggerModule.logger, "info").mockImplementation(
 			() => "",
 		);
+		mockStartConfigurationPolling = spyOn(
+			configModule,
+			"startConfigurationPolling",
+		).mockImplementation(async () => {});
 	});
 
 	afterEach(() => {
@@ -51,13 +56,13 @@ describe("proxy", () => {
 		mockServerConnect.mockRestore();
 		mockServerClose.mockRestore();
 		mockLoggerInfo.mockRestore();
+		mockStartConfigurationPolling.mockRestore();
 	});
 
 	test("successfully initializes the proxy server", async () => {
 		// Act
 		const result = await proxy();
 
-		// Give the async generator time to initialize
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		// Assert
@@ -65,7 +70,9 @@ describe("proxy", () => {
 		expect(mockSetRequestHandlers).toHaveBeenCalledWith(server);
 		expect(mockConnectClients).toHaveBeenCalledWith(defaultConfig);
 		expect(mockServerConnect).toHaveBeenCalledTimes(1);
+		expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
 		expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
+		expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server started");
 		expect(typeof result[Symbol.dispose]).toBe("function");
 	});
 
@@ -97,9 +104,19 @@ describe("proxy", () => {
 	});
 
 	describe("error handling", () => {
+		test("handles configuration generator returning done immediately", async () => {
+			// Arrange
+			mockConfiguration.mockImplementation(async function* () {
+				return;
+			});
+
+			return expect(proxy()).rejects.toThrow(
+				/Failed to get initial configuration/,
+			);
+		});
+
 		test("handles configuration generator error", async () => {
 			// Arrange
-			// biome-ignore lint/correctness/useYield: Test case needs generator that throws immediately
 			mockConfiguration.mockImplementation(async function* () {
 				throw new Error("Configuration error");
 			});
@@ -158,6 +175,39 @@ describe("proxy", () => {
 
 			// Act
 			await result[Symbol.dispose]();
+
+			// Assert
+			expect(mockCleanup).toHaveBeenCalledTimes(1);
+			expect(mockServerClose).toHaveBeenCalledTimes(1);
+		});
+
+		test("handles configPolling rejection gracefully during dispose", async () => {
+			// Arrange
+			mockStartConfigurationPolling.mockImplementation(() =>
+				Promise.reject(new Error("Polling failed")),
+			);
+			const result = await proxy();
+
+			// Act
+			await result[Symbol.dispose]();
+
+			expect(mockCleanup).toHaveBeenCalledTimes(1);
+			expect(mockServerClose).toHaveBeenCalledTimes(1);
+		});
+
+		test("handles configPolling success during dispose", async () => {
+			// Arrange
+			let resolvePolling: () => void;
+			const pollingPromise = new Promise<void>((resolve) => {
+				resolvePolling = resolve;
+			});
+			mockStartConfigurationPolling.mockImplementation(() => pollingPromise);
+			const result = await proxy();
+
+			// Act
+			const disposePromise = result[Symbol.dispose]();
+			resolvePolling();
+			await disposePromise;
 
 			// Assert
 			expect(mockCleanup).toHaveBeenCalledTimes(1);

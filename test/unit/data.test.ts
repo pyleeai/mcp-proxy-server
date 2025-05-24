@@ -2,12 +2,15 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
+	clearAllClientStates,
 	getAllClientStates,
 	getAllClients,
 	getClientFor,
 	getClientVersion,
 	getKeyFor,
 	getReadMethodFor,
+	removeClientMappings,
+	removeClientState,
 	setClientFor,
 	setClientState,
 } from "../../src/data";
@@ -87,6 +90,75 @@ describe("setClientState", () => {
 		);
 		expect(foundClient).toEqual(clientState2 as ClientState);
 		expect(foundClient).not.toEqual(clientState1);
+	});
+
+	afterEach(() => {
+		const mockClient = { name: "cleanup" } as unknown as Client;
+		const mockTransport = {
+			close: () => {},
+			start: () => Promise.resolve(),
+			send: () => Promise.resolve(),
+		} as unknown as Transport;
+
+		for (const name of testClientNames) {
+			const cleanupState: ClientState = {
+				name: `cleaned-${name}`,
+				client: mockClient,
+				transport: mockTransport,
+			};
+			setClientState(name, cleanupState);
+		}
+
+		testClientNames = [];
+	});
+});
+
+describe("removeClientState", () => {
+	let testClientNames: string[] = [];
+
+	beforeEach(() => {
+		testClientNames = [];
+	});
+
+	test("should remove a client state", () => {
+		// Arrange
+		const testClientName = `test-client-${Date.now()}-remove`;
+		testClientNames.push(testClientName);
+		const mockClient = { name: "client1" } as unknown as Client;
+		const mockTransport = {
+			close: () => {},
+			start: () => Promise.resolve(),
+			send: () => Promise.resolve(),
+		} as unknown as Transport;
+		const clientState: ClientState = {
+			name: testClientName,
+			client: mockClient,
+			transport: mockTransport,
+		};
+		setClientState(testClientName, clientState);
+		const clientsBefore = getAllClientStates();
+
+		// Act
+		removeClientState(testClientName);
+
+		// Assert
+		const clientsAfter = getAllClientStates();
+		expect(clientsAfter.length).toBe(clientsBefore.length - 1);
+		const found = clientsAfter.find((client) => client.name === testClientName);
+		expect(found).toBeUndefined();
+	});
+
+	test("should handle removing non-existent client state", () => {
+		// Arrange
+		const nonExistentName = `non-existent-${Date.now()}`;
+		const clientsBefore = getAllClientStates();
+
+		// Act
+		removeClientState(nonExistentName);
+
+		// Assert
+		const clientsAfter = getAllClientStates();
+		expect(clientsAfter.length).toBe(clientsBefore.length);
 	});
 
 	afterEach(() => {
@@ -436,6 +508,96 @@ describe("getReadMethodFor", () => {
 
 		// Assert
 		expect(result).toBe(method);
+	});
+});
+
+describe("clearAllClientStates", () => {
+	test("should clear all client states and proxy mappings", () => {
+		// Arrange
+		const mockClient1 = { name: "client1" } as unknown as Client;
+		const mockClient2 = { name: "client2" } as unknown as Client;
+		const mockTransport1 = {
+			close: () => {},
+			start: () => Promise.resolve(),
+			send: () => Promise.resolve(),
+		} as unknown as Transport;
+		const mockTransport2 = {
+			close: () => {},
+			start: () => Promise.resolve(),
+			send: () => Promise.resolve(),
+		} as unknown as Transport;
+		const clientState1: ClientState = {
+			name: "test-client-1",
+			client: mockClient1,
+			transport: mockTransport1,
+		};
+		const clientState2: ClientState = {
+			name: "test-client-2",
+			client: mockClient2,
+			transport: mockTransport2,
+		};
+
+		setClientState("test-client-1", clientState1);
+		setClientState("test-client-2", clientState2);
+		setClientFor("test-method", "test-identifier-1", mockClient1);
+		setClientFor("test-method", "test-identifier-2", mockClient2);
+
+		// Verify data exists
+		expect(getAllClientStates().length).toBeGreaterThan(0);
+
+		// Act
+		clearAllClientStates();
+
+		// Assert
+		expect(getAllClientStates().length).toBe(0);
+		expect(getAllClients().length).toBe(0);
+		expect(() => getClientFor("test-method", "test-identifier-1")).toThrow();
+		expect(() => getClientFor("test-method", "test-identifier-2")).toThrow();
+	});
+});
+
+describe("removeClientMappings", () => {
+	test("should remove all mappings for a specific client", () => {
+		// Arrange
+		const mockClient1 = { name: "client1" } as unknown as Client;
+		const mockClient2 = { name: "client2" } as unknown as Client;
+
+		setClientFor("method1", "identifier1", mockClient1);
+		setClientFor("method1", "identifier2", mockClient2);
+		setClientFor("method2", "identifier3", mockClient1);
+		setClientFor("method2", "identifier4", mockClient2);
+
+		// Verify mappings exist
+		expect(getClientFor("method1", "identifier1")).toBe(mockClient1);
+		expect(getClientFor("method1", "identifier2")).toBe(mockClient2);
+		expect(getClientFor("method2", "identifier3")).toBe(mockClient1);
+		expect(getClientFor("method2", "identifier4")).toBe(mockClient2);
+
+		// Act
+		removeClientMappings(mockClient1);
+
+		// Assert
+		expect(() => getClientFor("method1", "identifier1")).toThrow();
+		expect(getClientFor("method1", "identifier2")).toBe(mockClient2);
+		expect(() => getClientFor("method2", "identifier3")).toThrow();
+		expect(getClientFor("method2", "identifier4")).toBe(mockClient2);
+	});
+
+	test("should handle removing mappings for non-existent client", () => {
+		// Arrange
+		const mockClient1 = { name: "client1" } as unknown as Client;
+		const mockClient2 = { name: "client2" } as unknown as Client;
+		const nonExistentClient = { name: "non-existent" } as unknown as Client;
+
+		setClientFor("method1", "identifier1", mockClient1);
+		setClientFor("method1", "identifier2", mockClient2);
+
+		// Act
+		removeClientMappings(nonExistentClient);
+
+		// Assert - original mappings should still exist
+		expect(getClientFor("method1", "identifier1")).toBe(mockClient1);
+		expect(getClientFor("method1", "identifier2")).toBe(mockClient2);
 	});
 });
 

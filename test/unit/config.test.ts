@@ -115,6 +115,11 @@ describe("configuration", () => {
 
 	test("yields default configuration on timeout error", async () => {
 		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
 		const abortError = new DOMException(
 			"The operation was aborted",
 			"AbortError",
@@ -129,6 +134,32 @@ describe("configuration", () => {
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
 		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Timeout fetching configuration");
+		expect(warnCall[1]).toBe(abortError);
+	});
+
+	test("yields default configuration on non-timeout fetch error", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		const networkError = new Error("Network connection failed");
+		fetchSpy.mockImplementation(() => Promise.reject(networkError));
+
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Network error fetching configuration");
+		expect(warnCall[1]).toBe(networkError);
 	});
 
 	test("yields default configuration on network error", async () => {
@@ -148,6 +179,11 @@ describe("configuration", () => {
 
 	test("yields default configuration on HTTP error", async () => {
 		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
 				new Response(null, {
@@ -165,11 +201,16 @@ describe("configuration", () => {
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
 		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Error fetching configuration");
+		expect(warnCall[0]).toContain("404");
+		expect(warnCall[0]).toContain("Not Found");
 	});
 
 	test("handles JSON parsing failure", async () => {
 		// Arrange
 		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
 		mock.module(ENV_MODULE, () => ({
 			CONFIGURATION_URL: mockConfigUrl,
 			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
@@ -184,15 +225,19 @@ describe("configuration", () => {
 
 		// Act
 		const gen = configuration();
-		const result = await gen.next();
+		const result1 = await gen.next();
+		const result2 = await gen.next();
 
-		// Assert - generator terminates early on parsing failure
-		expect(result.done).toBe(true);
+		// Assert
+		expect(result1.done).toBe(true);
+		expect(result2.done).toBe(true);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Error fetching configuration");
 	});
 
 	test("handles invalid configuration", async () => {
 		// Arrange
 		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
 		mock.module(ENV_MODULE, () => ({
 			CONFIGURATION_URL: mockConfigUrl,
 			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
@@ -207,10 +252,13 @@ describe("configuration", () => {
 
 		// Act
 		const gen = configuration();
-		const result = await gen.next();
+		const result1 = await gen.next();
+		const result2 = await gen.next();
 
-		// Assert - generator terminates early on invalid config
-		expect(result.done).toBe(true);
+		// Assert
+		expect(result1.done).toBe(true);
+		expect(result2.done).toBe(true);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Error fetching configuration");
 	});
 
 	test("successfully yields configuration", async () => {
