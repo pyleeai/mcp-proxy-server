@@ -24,7 +24,7 @@ describe("proxy", () => {
 		mockConfiguration = spyOn(configModule, "configuration").mockImplementation(
 			async function* () {
 				yield defaultConfig;
-			}
+			},
 		);
 		mockConnectClients = spyOn(
 			clientsModule,
@@ -58,7 +58,7 @@ describe("proxy", () => {
 		const result = await proxy();
 
 		// Give the async generator time to initialize
-		await new Promise(resolve => setTimeout(resolve, 0));
+		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		// Assert
 		expect(mockConfiguration).toHaveBeenCalledTimes(1);
@@ -77,10 +77,7 @@ describe("proxy", () => {
 		await proxy(customConfigUrl);
 
 		// Assert
-		expect(mockConfiguration).toHaveBeenCalledWith(
-			customConfigUrl,
-			undefined,
-		);
+		expect(mockConfiguration).toHaveBeenCalledWith(customConfigUrl, undefined);
 	});
 
 	test("accepts headers parameter and passes it to configuration", async () => {
@@ -94,10 +91,9 @@ describe("proxy", () => {
 		await proxy(customConfigUrl, { headers: customHeaders });
 
 		// Assert
-		expect(mockConfiguration).toHaveBeenCalledWith(
-			customConfigUrl,
-			{ headers: customHeaders },
-		);
+		expect(mockConfiguration).toHaveBeenCalledWith(customConfigUrl, {
+			headers: customHeaders,
+		});
 	});
 
 	describe("error handling", () => {
@@ -148,7 +144,9 @@ describe("proxy", () => {
 			const result = await proxy();
 
 			// Act & Assert
-			return expect(result[Symbol.dispose]()).rejects.toThrow("Server close error");
+			return expect(result[Symbol.dispose]()).rejects.toThrow(
+				"Server close error",
+			);
 		});
 	});
 

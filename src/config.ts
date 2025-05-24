@@ -1,8 +1,8 @@
-import { CONFIGURATION_URL, CONFIGURATION_POLL_INTERVAL } from "./env";
+import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
 import { ConfigurationError } from "./errors";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
-import { fail } from "./utils";
+import { delay, fail } from "./utils";
 
 using log = logger;
 
@@ -13,8 +13,8 @@ const fetchConfiguration = async (
 	const timeoutMs = 10000;
 	const defaultConfiguration: Configuration = {
 		mcp: {
-			servers: {}
-		}
+			servers: {},
+		},
 	};
 
 	if (!configurationUrl) {
@@ -25,7 +25,9 @@ const fetchConfiguration = async (
 	try {
 		new URL(configurationUrl);
 	} catch {
-		log.warn("The configuration URL is not valid, using default empty configuration");
+		log.warn(
+			"The configuration URL is not valid, using default empty configuration",
+		);
 		return defaultConfiguration;
 	}
 
@@ -98,14 +100,15 @@ export async function* configuration(
 				configurationUrl,
 				options?.headers,
 			);
-			const configChanged = !currentConfiguration || !areConfigurationsEqual(currentConfiguration, newConfiguration);
-			
+			const configChanged =
+				!currentConfiguration ||
+				!areConfigurationsEqual(currentConfiguration, newConfiguration);
+
 			if (configChanged) {
-			  log.info("Configuration changed")
+				log.info("Configuration changed");
 				currentConfiguration = newConfiguration;
 				yield newConfiguration;
 			}
-
 		} catch {
 			log.error("Error fetching configuration");
 		}

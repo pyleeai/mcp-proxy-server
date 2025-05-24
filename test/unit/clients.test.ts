@@ -33,9 +33,10 @@ describe("connectClients", () => {
 			Promise.resolve(mockTransport),
 		);
 		mockSetClientState = spyOn(dataModule, "setClientState");
-		mockGetAllClientStates = spyOn(dataModule, "getAllClientStates").mockImplementation(
-			() => [],
-		);
+		mockGetAllClientStates = spyOn(
+			dataModule,
+			"getAllClientStates",
+		).mockImplementation(() => []);
 		mockClearAllClientStates = spyOn(dataModule, "clearAllClientStates");
 		mockLoggerInfo = spyOn(logger, "info");
 		mockLoggerDebug = spyOn(logger, "debug");
@@ -99,7 +100,9 @@ describe("connectClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(3);
 		expect(mockConnect).toHaveBeenCalledTimes(3);
 		expect(mockSetClientState).toHaveBeenCalledTimes(3);
-		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 3/3 servers");
+		expect(mockLoggerInfo).toHaveBeenCalledWith(
+			"Successfully connected to 3/3 servers",
+		);
 		expect(mockClearAllClientStates).not.toHaveBeenCalled();
 	});
 
@@ -123,7 +126,9 @@ describe("connectClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(2);
 		expect(mockConnect).toHaveBeenCalledTimes(2);
 		expect(mockSetClientState).toHaveBeenCalledTimes(2);
-		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 2/2 servers");
+		expect(mockLoggerInfo).toHaveBeenCalledWith(
+			"Successfully connected to 2/2 servers",
+		);
 		expect(mockConnect).toHaveBeenCalledWith(mockClient, {
 			url: "http://server1.example.com",
 		});
@@ -146,9 +151,13 @@ describe("connectClients", () => {
 
 	test("should disconnect existing clients before connecting new ones", async () => {
 		// Arrange
-		const mockClose1 = spyOn({}, "close" as any).mockImplementation(() => Promise.resolve());
-		const mockClose2 = spyOn({}, "close" as any).mockImplementation(() => Promise.resolve());
-		
+		const mockClose1 = spyOn({}, "close" as any).mockImplementation(() =>
+			Promise.resolve(),
+		);
+		const mockClose2 = spyOn({}, "close" as any).mockImplementation(() =>
+			Promise.resolve(),
+		);
+
 		const existingTransport1 = {
 			close: mockClose1,
 		} as unknown as Transport;
@@ -163,7 +172,7 @@ describe("connectClients", () => {
 				transport: existingTransport1,
 			},
 			{
-				name: "existing2", 
+				name: "existing2",
 				client: {} as Client,
 				transport: existingTransport2,
 			},
@@ -184,7 +193,9 @@ describe("connectClients", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(mockLoggerInfo).toHaveBeenCalledWith("Disconnecting existing clients");
+		expect(mockLoggerInfo).toHaveBeenCalledWith(
+			"Disconnecting existing clients",
+		);
 		expect(mockClose1).toHaveBeenCalledTimes(1);
 		expect(mockClose2).toHaveBeenCalledTimes(1);
 		expect(mockClearAllClientStates).toHaveBeenCalledTimes(1);
@@ -193,8 +204,10 @@ describe("connectClients", () => {
 
 	test("should handle clients without transport during disconnection", async () => {
 		// Arrange
-		const mockClose = spyOn({}, "close" as any).mockImplementation(() => Promise.resolve());
-		
+		const mockClose = spyOn({}, "close" as any).mockImplementation(() =>
+			Promise.resolve(),
+		);
+
 		const existingTransport = {
 			close: mockClose,
 		} as unknown as Transport;
@@ -225,7 +238,9 @@ describe("connectClients", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(mockLoggerInfo).toHaveBeenCalledWith("Disconnecting existing clients");
+		expect(mockLoggerInfo).toHaveBeenCalledWith(
+			"Disconnecting existing clients",
+		);
 		expect(mockClose).toHaveBeenCalledTimes(1);
 		expect(mockClearAllClientStates).toHaveBeenCalledTimes(1);
 	});
@@ -234,10 +249,10 @@ describe("connectClients", () => {
 		// Arrange
 		let connectCallCount = 0;
 		const connectDelays = [100, 50, 75];
-		
+
 		mockConnect.mockImplementation(() => {
 			const delay = connectDelays[connectCallCount++];
-			return new Promise(resolve => {
+			return new Promise((resolve) => {
 				setTimeout(() => resolve(mockTransport), delay);
 			});
 		});
@@ -296,9 +311,13 @@ describe("connectClients", () => {
 		// Assert
 		expect(mockConnect).toHaveBeenCalledTimes(3);
 		expect(mockSetClientState).toHaveBeenCalledTimes(2); // Only 2 successful connections
-		expect(mockLoggerError).toHaveBeenCalledWith("Failed to connect to client", expect.any(Error));
-		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 2/3 servers");
-
+		expect(mockLoggerError).toHaveBeenCalledWith(
+			"Failed to connect to client",
+			expect.any(Error),
+		);
+		expect(mockLoggerInfo).toHaveBeenCalledWith(
+			"Successfully connected to 2/3 servers",
+		);
 	});
 
 	test("should continue when all client connections fail", async () => {
@@ -325,8 +344,9 @@ describe("connectClients", () => {
 		expect(mockConnect).toHaveBeenCalledTimes(2);
 		expect(mockSetClientState).not.toHaveBeenCalled();
 		expect(mockLoggerError).toHaveBeenCalledTimes(2);
-		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 0/2 servers");
-
+		expect(mockLoggerInfo).toHaveBeenCalledWith(
+			"Successfully connected to 0/2 servers",
+		);
 	});
 
 	test("should handle mixed success and failure scenarios gracefully", async () => {
@@ -335,7 +355,9 @@ describe("connectClients", () => {
 		mockConnect.mockImplementation(() => {
 			connectCallCount++;
 			if (connectCallCount === 1 || connectCallCount === 4) {
-				return Promise.reject(new Error(`Connection failed for server${connectCallCount}`));
+				return Promise.reject(
+					new Error(`Connection failed for server${connectCallCount}`),
+				);
 			}
 			return Promise.resolve(mockTransport);
 		});
@@ -360,7 +382,8 @@ describe("connectClients", () => {
 		expect(mockConnect).toHaveBeenCalledTimes(4);
 		expect(mockSetClientState).toHaveBeenCalledTimes(2); // Only 2 successful connections
 		expect(mockLoggerError).toHaveBeenCalledTimes(2); // 2 failures
-		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 2/4 servers");
-
+		expect(mockLoggerInfo).toHaveBeenCalledWith(
+			"Successfully connected to 2/4 servers",
+		);
 	});
 });

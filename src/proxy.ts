@@ -6,6 +6,7 @@ import { ProxyError } from "./errors";
 import { setRequestHandlers } from "./handlers";
 import { logger } from "./logger";
 import { createServer } from "./server";
+import type { Configuration } from "./types";
 import { fail } from "./utils";
 
 using log = logger;
@@ -23,14 +24,15 @@ export const proxy = async (
 
 		const configGen = configuration(configurationUrl, options);
 		const initialResult = await configGen.next();
-		
+
 		if (initialResult.done) {
 			fail("Failed to get initial configuration", ProxyError);
 		}
 
-		await connectClients(initialResult.value);
+		const config = initialResult.value as Configuration;
+		await connectClients(config);
 		await server.connect(new StdioServerTransport());
-		
+
 		log.info("MCP Proxy Server started");
 
 		(async () => {
@@ -43,7 +45,6 @@ export const proxy = async (
 				log.error("Error in configuration polling", error);
 			}
 		})();
-
 	} catch (error) {
 		fail("Failed to start MCP Proxy Server", ProxyError, error);
 	}

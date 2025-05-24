@@ -361,7 +361,7 @@ describe("configuration", () => {
 			CONFIGURATION_URL: mockConfigUrl,
 			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
 		}));
-		
+
 		const updatedConfiguration = {
 			mcp: {
 				servers: {
@@ -392,9 +392,9 @@ describe("configuration", () => {
 		// Act
 		const gen = configuration();
 		const result1 = await gen.next();
-		
+
 		// Wait for polling interval plus some buffer
-		await new Promise(resolve => setTimeout(resolve, 150));
+		await new Promise((resolve) => setTimeout(resolve, 150));
 		const result2 = await gen.next();
 
 		// Assert
@@ -423,15 +423,15 @@ describe("configuration", () => {
 				),
 			)
 			.mockImplementationOnce(() =>
-				Promise.reject(new Error("Network error during polling"))
+				Promise.reject(new Error("Network error during polling")),
 			);
 
 		// Act
 		const gen = configuration();
 		const result1 = await gen.next();
-		
+
 		// Wait for polling interval
-		await new Promise(resolve => setTimeout(resolve, 150));
+		await new Promise((resolve) => setTimeout(resolve, 150));
 
 		// Assert - first configuration should be yielded successfully
 		expect(result1.done).toBe(false);

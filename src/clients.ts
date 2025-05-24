@@ -1,6 +1,10 @@
 import { createClient } from "./client";
 import { connect } from "./connect";
-import { setClientState, getAllClientStates, clearAllClientStates } from "./data";
+import {
+	setClientState,
+	getAllClientStates,
+	clearAllClientStates,
+} from "./data";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
 
@@ -31,15 +35,17 @@ export const connectClients = async (
 			const transport = await connect(client, server);
 			setClientState(name, { name, client, transport });
 			return name;
-		})
+		}),
 	);
 
-	const successful = results.filter(r => r.status === 'fulfilled').length;
-	const failures = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
-	
-	failures.forEach(failure => 
-		log.error("Failed to connect to client", failure.reason)
+	const successful = results.filter((r) => r.status === "fulfilled").length;
+	const failures = results.filter(
+		(r) => r.status === "rejected",
+	) as PromiseRejectedResult[];
+
+	failures.forEach((failure) =>
+		log.error("Failed to connect to client", failure.reason),
 	);
-	
+
 	log.info(`Successfully connected to ${successful}/${servers.length} servers`);
 };
