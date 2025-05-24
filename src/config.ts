@@ -111,19 +111,16 @@ export async function* configuration(
 			if (CONFIGURATION_POLL_INTERVAL <= 0) {
 				break;
 			}
-
-			// Wait for next poll interval
-			await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
 		} catch (error) {
 			log.error("Error fetching configuration", error);
-			
+		
 			// If polling is disabled, don't retry
 			if (CONFIGURATION_POLL_INTERVAL <= 0) {
 				return;
 			}
-			
-			// Wait before retrying
-			await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
 		}
+	
+		// Wait for next poll interval
+		await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
 	}
 }
