@@ -7,200 +7,282 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
-import { fetchConfiguration } from "../../src/config";
-import { ConfigurationError } from "../../src/errors";
+import {
+	configuration,
+	areConfigurationsEqual,
+	startConfigurationPolling,
+} from "../../src/config";
 import { logger } from "../../src/logger";
+import { ConfigurationError } from "../../src/errors";
+import * as clientsModule from "../../src/clients";
 
 const ENV_MODULE = "../../src/env";
 let mockConfigUrl = "https://example.com/config";
+let mockPollInterval = 0;
 
 mock.module(ENV_MODULE, () => ({
 	CONFIGURATION_URL: mockConfigUrl,
+	CONFIGURATION_POLL_INTERVAL: mockPollInterval,
 }));
 
-describe("fetchConfiguration", () => {
+describe("configuration", () => {
 	let originalFetch: typeof fetch;
 	let fetchSpy: ReturnType<typeof spyOn>;
 	let loggerDebugSpy: ReturnType<typeof spyOn>;
+	let loggerWarnSpy: ReturnType<typeof spyOn>;
+	let loggerInfoSpy: ReturnType<typeof spyOn>;
+	let loggerErrorSpy: ReturnType<typeof spyOn>;
+
+	const defaultConfiguration = {
+		mcp: {
+			servers: {},
+		},
+	};
+
+	const validConfiguration = {
+		mcp: {
+			servers: {
+				server1: {
+					command: "node",
+					args: ["server1.js"],
+				},
+			},
+		},
+	};
 
 	beforeEach(() => {
-		mock.module(ENV_MODULE, () => ({
-			CONFIGURATION_URL: mockConfigUrl,
-		}));
-
 		originalFetch = globalThis.fetch;
 		fetchSpy = spyOn(globalThis, "fetch");
 		loggerDebugSpy = spyOn(logger, "debug");
+		loggerWarnSpy = spyOn(logger, "warn");
+		loggerInfoSpy = spyOn(logger, "info");
+		loggerErrorSpy = spyOn(logger, "error");
+		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
 	});
 
-	test("throws error when CONFIGURATION_URL is not set", () => {
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+		fetchSpy.mockRestore();
+		loggerDebugSpy.mockRestore();
+		loggerWarnSpy.mockRestore();
+		loggerInfoSpy.mockRestore();
+		loggerErrorSpy.mockRestore();
+	});
+
+	test("yields default configuration when CONFIGURATION_URL is not set", async () => {
 		// Arrange
 		mockConfigUrl = "";
 		mock.module(ENV_MODULE, () => ({
 			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
 		}));
-		fetchSpy.mockClear();
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow("No configuration URL found");
-		expect(loggerDebugSpy).not.toHaveBeenCalled();
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalledWith(
+			"No configuration URL found, using default empty configuration",
+		);
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
-	test("throws error when CONFIGURATION_URL is not a valid URL", () => {
+	test("yields default configuration when CONFIGURATION_URL is not a valid URL", async () => {
 		// Arrange
 		mockConfigUrl = "not-a-valid-url";
 		mock.module(ENV_MODULE, () => ({
 			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
 		}));
 		fetchSpy.mockClear();
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"The configuration URL is not valid",
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalledWith(
+			"The configuration URL is not valid, using default empty configuration",
 		);
-		expect(loggerDebugSpy).not.toHaveBeenCalled();
 		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
-	test("handles timeout error", () => {
+	test("yields default configuration on timeout error", async () => {
 		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
 		const abortError = new DOMException(
 			"The operation was aborted",
 			"AbortError",
 		);
 		fetchSpy.mockImplementation(() => Promise.reject(abortError));
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"Timeout fetching configuration (exceeded 10s)",
-		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			"Fetching configuration from https://example.com/config",
-		);
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Timeout fetching configuration");
+		expect(warnCall[1]).toBe(abortError);
 	});
 
-	test("handles network error", () => {
+	test("yields default configuration on non-timeout fetch error", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		const networkError = new Error("Network connection failed");
+		fetchSpy.mockImplementation(() => Promise.reject(networkError));
+
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Network error fetching configuration");
+		expect(warnCall[1]).toBe(networkError);
+	});
+
+	test("yields default configuration on network error", async () => {
 		// Arrange
 		const networkError = new Error("Network error");
 		fetchSpy.mockImplementation(() => Promise.reject(networkError));
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"Network error fetching configuration",
-		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			"Fetching configuration from https://example.com/config",
-		);
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalled();
 	});
 
-	test("handles HTTP error", () => {
+	test("yields default configuration on HTTP error", async () => {
 		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
-				new Response("Not Found", {
+				new Response(null, {
 					status: 404,
 					statusText: "Not Found",
 				}),
 			),
 		);
 
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"Error fetching configuration (404 Not Found)",
-		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			"Fetching configuration from https://example.com/config",
-		);
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Error fetching configuration");
+		expect(warnCall[0]).toContain("404");
+		expect(warnCall[0]).toContain("Not Found");
 	});
 
-	test("handles JSON parsing error", () => {
+	test("handles JSON parsing failure", async () => {
 		// Arrange
-		fetchSpy.mockImplementation(() =>
-			Promise.resolve(
-				new Response("Not JSON", {
-					status: 200,
-					headers: { "Content-Type": "application/json" },
-				}),
-			),
-		);
-
-		// Act & Assert
-		expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-		expect(fetchConfiguration()).rejects.toThrow(
-			"Failed to parse configuration",
-		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			"Fetching configuration from https://example.com/config",
-		);
-	});
-
-	test("throws error when configuration is invalid", () => {
-		// Arrange
-		const invalidConfigurations = [
-			{},
-			{ mcp: {} },
-			{ mcp: { servers: null } },
-			{ version: "1.0.0", models: [] },
-		];
-		for (const invalidConfig of invalidConfigurations) {
-			fetchSpy.mockImplementation(() =>
-				Promise.resolve(
-					new Response(JSON.stringify(invalidConfig), {
-						status: 200,
-						headers: { "Content-Type": "application/json" },
-					}),
-				),
-			);
-
-			// Act & Assert
-			expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
-			expect(fetchConfiguration()).rejects.toThrow("Invalid configuration");
-		}
-	});
-
-	test("successfully fetches and parses configuration", async () => {
-		// Arrange
-		const configuration = {
-			version: "1.0.0",
-			models: [{ id: "test-model", name: "Test Model" }],
-			mcp: {
-				servers: {
-					server1: {
-						url: "https://example.com/server1",
-					},
-				},
-			},
-		};
 		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
 		mock.module(ENV_MODULE, () => ({
 			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
 		}));
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
-				new Response(JSON.stringify(configuration), {
+				new Response("{invalid json syntax", {
 					status: 200,
-					headers: { "Content-Type": "application/json" },
 				}),
 			),
 		);
 
 		// Act
-		const result = await fetchConfiguration();
+		const gen = configuration();
+		const result1 = await gen.next();
+		const result2 = await gen.next();
 
 		// Assert
-		expect(fetchSpy).toHaveBeenCalledWith("https://example.com/config", {
-			method: "GET",
-			headers: { Accept: "application/json" },
-			signal: expect.any(AbortSignal),
-		});
-		expect(result).toEqual(configuration);
-		expect(loggerDebugSpy).toHaveBeenCalledTimes(2);
+		expect(result1.done).toBe(true);
+		expect(result2.done).toBe(true);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Error fetching configuration");
+	});
+
+	test("handles invalid configuration", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(JSON.stringify({ someOtherField: "value" }), {
+					status: 200,
+				}),
+			),
+		);
+
+		// Act
+		const gen = configuration();
+		const result1 = await gen.next();
+		const result2 = await gen.next();
+
+		// Assert
+		expect(result1.done).toBe(true);
+		expect(result2.done).toBe(true);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Error fetching configuration");
+	});
+
+	test("successfully yields configuration", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(JSON.stringify(validConfiguration), {
+					status: 200,
+				}),
+			),
+		);
+
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(validConfiguration);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Fetching configuration from https://example.com/config",
 		);
@@ -211,130 +293,413 @@ describe("fetchConfiguration", () => {
 
 	test("uses provided configurationUrl parameter instead of environment variable", async () => {
 		// Arrange
-		const configuration = {
-			version: "1.0.0",
-			models: [{ id: "test-model", name: "Test Model" }],
-			mcp: {
-				servers: {
-					server1: {
-						url: "https://example.com/server1",
-					},
-				},
-			},
-		};
-		mockConfigUrl = "https://example.com/default-config";
-		mock.module(ENV_MODULE, () => ({
-			CONFIGURATION_URL: mockConfigUrl,
-		}));
-		const customUrl = "https://example.com/custom-config";
+		const customUrl = "https://custom.example.com/config";
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
-				new Response(JSON.stringify(configuration), {
+				new Response(JSON.stringify(validConfiguration), {
 					status: 200,
-					headers: { "Content-Type": "application/json" },
 				}),
 			),
 		);
 
 		// Act
-		const result = await fetchConfiguration(customUrl);
+		const gen = configuration(customUrl);
+		await gen.next();
 
 		// Assert
-		expect(fetchSpy).toHaveBeenCalledWith(customUrl, {
-			method: "GET",
-			headers: { Accept: "application/json" },
-			signal: expect.any(AbortSignal),
-		});
-		expect(result).toEqual(configuration);
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			`Fetching configuration from ${customUrl}`,
-		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			`Successfully loaded configuration from ${customUrl}`,
+		expect(fetchSpy).toHaveBeenCalledWith(
+			customUrl,
+			expect.objectContaining({
+				method: "GET",
+				headers: expect.objectContaining({
+					Accept: "application/json",
+				}),
+			}),
 		);
 	});
 
 	test("uses provided headers and merges Accept: application/json", async () => {
 		// Arrange
-		const configuration = {
-			mcp: { servers: { server1: { url: "test" } } },
+		const customHeaders = {
+			Authorization: "Bearer token",
+			"Content-Type": "application/xml",
 		};
-		const customHeaders = { "X-Custom-Header": "TestValue" };
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
-				new Response(JSON.stringify(configuration), {
+				new Response(JSON.stringify(validConfiguration), {
 					status: 200,
-					headers: { "Content-Type": "application/json" },
 				}),
 			),
 		);
 
 		// Act
-		await fetchConfiguration(mockConfigUrl, customHeaders);
+		const gen = configuration(mockConfigUrl, { headers: customHeaders });
+		await gen.next();
 
 		// Assert
-		expect(fetchSpy).toHaveBeenCalledWith(mockConfigUrl, {
-			method: "GET",
-			headers: {
-				...customHeaders,
-				Accept: "application/json",
-			},
-			signal: expect.any(AbortSignal),
-		});
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			`Fetching configuration from ${mockConfigUrl}`,
-		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			`Successfully loaded configuration from ${mockConfigUrl}`,
+		expect(fetchSpy).toHaveBeenCalledWith(
+			mockConfigUrl,
+			expect.objectContaining({
+				method: "GET",
+				headers: {
+					...customHeaders,
+					Accept: "application/json",
+				},
+			}),
 		);
 	});
 
-	test("hardcoded Accept: application/json takes precedence over provided Accept header", async () => {
+	test("Accept: application/json takes precedence over provided Accept header", async () => {
 		// Arrange
-		const configuration = {
-			mcp: { servers: { server1: { url: "test" } } },
-		};
 		const customHeaders = {
-			"X-Custom-Header": "TestValue",
+			Authorization: "Bearer token",
 			Accept: "application/xml",
 		};
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
-				new Response(JSON.stringify(configuration), {
+				new Response(JSON.stringify(validConfiguration), {
 					status: 200,
-					headers: { "Content-Type": "application/json" },
 				}),
 			),
 		);
 
 		// Act
-		await fetchConfiguration(mockConfigUrl, customHeaders);
+		const gen = configuration(mockConfigUrl, { headers: customHeaders });
+		await gen.next();
 
 		// Assert
-		expect(fetchSpy).toHaveBeenCalledWith(mockConfigUrl, {
-			method: "GET",
-			headers: {
-				"X-Custom-Header": "TestValue",
-				Accept: "application/json",
-			},
-			signal: expect.any(AbortSignal),
-		});
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			`Fetching configuration from ${mockConfigUrl}`,
-		);
-		expect(loggerDebugSpy).toHaveBeenCalledWith(
-			`Successfully loaded configuration from ${mockConfigUrl}`,
+		expect(fetchSpy).toHaveBeenCalledWith(
+			mockConfigUrl,
+			expect.objectContaining({
+				method: "GET",
+				headers: {
+					Authorization: "Bearer token",
+					Accept: "application/json",
+				},
+			}),
 		);
 	});
 
-	afterEach(() => {
-		mockConfigUrl = "https://example.com/config";
+	test("stops after initial configuration when polling is disabled", async () => {
+		// Arrange
+		mockPollInterval = 0;
 		mock.module(ENV_MODULE, () => ({
 			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(JSON.stringify(validConfiguration), {
+					status: 200,
+				}),
+			),
+		);
+
+		// Act
+		const gen = configuration();
+		const result1 = await gen.next();
+		const result2 = await gen.next();
+
+		// Assert
+		expect(result1.done).toBe(false);
+		expect(result1.value).toEqual(validConfiguration);
+		expect(result2.done).toBe(true);
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+	});
+
+	test("continues polling when poll interval is set", async () => {
+		// Arrange
+		mockPollInterval = 100;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
 		}));
 
-		globalThis.fetch = originalFetch;
-		fetchSpy.mockRestore();
-		loggerDebugSpy.mockRestore();
+		const updatedConfiguration = {
+			mcp: {
+				servers: {
+					server2: {
+						command: "node",
+						args: ["server2.js"],
+					},
+				},
+			},
+		};
+
+		fetchSpy
+			.mockImplementationOnce(() =>
+				Promise.resolve(
+					new Response(JSON.stringify(validConfiguration), {
+						status: 200,
+					}),
+				),
+			)
+			.mockImplementationOnce(() =>
+				Promise.resolve(
+					new Response(JSON.stringify(updatedConfiguration), {
+						status: 200,
+					}),
+				),
+			);
+
+		// Act
+		const gen = configuration();
+		const result1 = await gen.next();
+
+		// Wait for polling interval plus some buffer
+		await new Promise((resolve) => setTimeout(resolve, 150));
+		const result2 = await gen.next();
+
+		// Assert
+		expect(result1.done).toBe(false);
+		expect(result1.value).toEqual(validConfiguration);
+		expect(result2.done).toBe(false);
+		expect(result2.value).toEqual(updatedConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration changed");
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
+	});
+
+	test("handles polling errors gracefully", async () => {
+		// Arrange
+		mockPollInterval = 100;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		fetchSpy
+			.mockImplementationOnce(() =>
+				Promise.resolve(
+					new Response(JSON.stringify(validConfiguration), {
+						status: 200,
+					}),
+				),
+			)
+			.mockImplementationOnce(() =>
+				Promise.reject(new Error("Network error during polling")),
+			);
+
+		// Act
+		const gen = configuration();
+		const result1 = await gen.next();
+
+		// Wait for polling interval
+		await new Promise((resolve) => setTimeout(resolve, 150));
+
+		// Assert - first configuration should be yielded successfully
+		expect(result1.done).toBe(false);
+		expect(result1.value).toEqual(validConfiguration);
+		// Polling errors are handled gracefully without terminating the generator
+	});
+});
+
+describe("areConfigurationsEqual", () => {
+	test("returns true for identical configurations", () => {
+		const config1 = { mcp: { servers: { test: { command: "test" } } } };
+		const config2 = { mcp: { servers: { test: { command: "test" } } } };
+
+		expect(areConfigurationsEqual(config1, config2)).toBe(true);
+	});
+
+	test("returns false for different configurations", () => {
+		const config1 = { mcp: { servers: { test1: { command: "test1" } } } };
+		const config2 = { mcp: { servers: { test2: { command: "test2" } } } };
+
+		expect(areConfigurationsEqual(config1, config2)).toBe(false);
+	});
+
+	test("returns true for empty configurations", () => {
+		const config1 = { mcp: { servers: {} } };
+		const config2 = { mcp: { servers: {} } };
+
+		expect(areConfigurationsEqual(config1, config2)).toBe(true);
+	});
+
+	test("returns false when one configuration is empty and the other is not", () => {
+		const config1 = { mcp: { servers: {} } };
+		const config2 = { mcp: { servers: { test: { command: "test" } } } };
+
+		expect(areConfigurationsEqual(config1, config2)).toBe(false);
+	});
+
+	test("handles nested properties correctly", () => {
+		const config1 = {
+			mcp: {
+				servers: {
+					test: {
+						command: "node",
+						args: ["script.js"],
+						env: ["NODE_ENV=production"],
+					},
+				},
+			},
+		};
+		const config2 = {
+			mcp: {
+				servers: {
+					test: {
+						command: "node",
+						args: ["script.js"],
+						env: ["NODE_ENV=development"],
+					},
+				},
+			},
+		};
+
+		expect(areConfigurationsEqual(config1, config2)).toBe(false);
+	});
+
+	test("is sensitive to property order in arrays", () => {
+		const config1 = {
+			mcp: { servers: { test: { args: ["arg1", "arg2"] } } },
+		};
+		const config2 = {
+			mcp: { servers: { test: { args: ["arg2", "arg1"] } } },
+		};
+
+		expect(areConfigurationsEqual(config1, config2)).toBe(false);
+	});
+});
+
+describe("startConfigurationPolling", () => {
+	let mockConnectClients: ReturnType<typeof spyOn>;
+	let loggerInfoSpy: ReturnType<typeof spyOn>;
+	let loggerErrorSpy: ReturnType<typeof spyOn>;
+
+	const defaultConfig = { mcp: { servers: {} } };
+
+	beforeEach(() => {
+		mockConnectClients = spyOn(
+			clientsModule,
+			"connectClients",
+		).mockImplementation(async () => {});
+		loggerInfoSpy = spyOn(logger, "info");
+		loggerErrorSpy = spyOn(logger, "error");
+	});
+
+	afterEach(() => {
+		mockConnectClients.mockRestore();
+		loggerInfoSpy.mockRestore();
+		loggerErrorSpy.mockRestore();
+	});
+
+	test("handles configuration changes and reconnects clients", async () => {
+		// Arrange
+		const config1 = { mcp: { servers: { server1: {} } } };
+		const config2 = { mcp: { servers: { server2: {} } } };
+		const abortController = new AbortController();
+
+		async function* mockConfigGen() {
+			yield config1;
+			yield config2;
+		}
+
+		// Act
+		const pollingPromise = startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+		);
+
+		// Give time for polling to process
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		abortController.abort();
+		await pollingPromise;
+
+		// Assert
+		expect(mockConnectClients).toHaveBeenCalledWith(config1);
+		expect(mockConnectClients).toHaveBeenCalledWith(config2);
+		expect(mockConnectClients).toHaveBeenCalledTimes(2);
+		expect(loggerInfoSpy).toHaveBeenCalledWith(
+			"Configuration changed, reconnecting clients",
+		);
+	});
+
+	test("stops polling when aborted", async () => {
+		// Arrange
+		const abortController = new AbortController();
+		let generatorRunning = true;
+
+		async function* mockConfigGen() {
+			yield defaultConfig;
+			while (generatorRunning) {
+				await new Promise((resolve) => setTimeout(resolve, 5));
+				yield defaultConfig;
+			}
+		}
+
+		// Act
+		const pollingPromise = startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+		);
+
+		// Give time for polling to start
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		abortController.abort();
+		generatorRunning = false;
+		await pollingPromise;
+
+		// Assert
+		expect(mockConnectClients).toHaveBeenCalled();
+	});
+
+	test("logs errors when not aborted", async () => {
+		// Arrange
+		const abortController = new AbortController();
+
+		async function* mockConfigGen() {
+			yield defaultConfig;
+			throw new Error("Polling error");
+		}
+
+		// Act
+		await startConfigurationPolling(mockConfigGen(), abortController);
+
+		// Assert
+		expect(loggerErrorSpy).toHaveBeenCalledWith(
+			"Error in configuration polling",
+			expect.any(Error),
+		);
+	});
+
+	test("does not log errors when aborted", async () => {
+		// Arrange
+		const abortController = new AbortController();
+		abortController.abort();
+
+		async function* mockConfigGen() {
+			yield defaultConfig;
+			throw new Error("Polling error");
+		}
+
+		// Act
+		await startConfigurationPolling(mockConfigGen(), abortController);
+
+		// Assert
+		expect(loggerErrorSpy).not.toHaveBeenCalled();
+	});
+
+	test("breaks loop when abort signal is triggered", async () => {
+		// Arrange
+		const abortController = new AbortController();
+		let yieldCount = 0;
+
+		async function* mockConfigGen() {
+			while (true) {
+				yieldCount++;
+				yield defaultConfig;
+				if (yieldCount === 2) {
+					abortController.abort();
+				}
+			}
+		}
+
+		// Act
+		await startConfigurationPolling(mockConfigGen(), abortController);
+
+		// Assert
+		expect(yieldCount).toBe(3);
+		expect(mockConnectClients).toHaveBeenCalledTimes(2);
 	});
 });

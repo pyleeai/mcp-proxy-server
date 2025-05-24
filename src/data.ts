@@ -8,6 +8,15 @@ export const setClientState = (name: string, state: ClientState): void => {
 	clientsStateMap.set(name, state);
 };
 
+export const removeClientState = (name: string): void => {
+	clientsStateMap.delete(name);
+};
+
+export const clearAllClientStates = (): void => {
+	clientsStateMap.clear();
+	proxyMap.clear();
+};
+
 export const getAllClientStates = (): ClientState[] =>
 	Array.from(clientsStateMap.values());
 
@@ -74,4 +83,14 @@ export const getClientFor = (method: string, identifier: string): Client => {
 	if (!client) throw new Error(`Client not found for ${method}:${identifier}`);
 
 	return client;
+};
+
+export const removeClientMappings = (client: Client): void => {
+	for (const methodMap of proxyMap.values()) {
+		for (const [identifier, mappedClient] of methodMap.entries()) {
+			if (mappedClient === client) {
+				methodMap.delete(identifier);
+			}
+		}
+	}
 };

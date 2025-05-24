@@ -1,6 +1,10 @@
 import { createClient } from "./client";
 import { connect } from "./connect";
-import { setClientState } from "./data";
+import {
+	setClientState,
+	getAllClientStates,
+	clearAllClientStates,
+} from "./data";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
 
@@ -9,18 +13,39 @@ using log = logger;
 export const connectClients = async (
 	configuration: Configuration,
 ): Promise<void> => {
-	const servers = Object.entries(configuration.mcp.servers);
+	const clients = getAllClientStates();
+	if (clients.length > 0) {
+		log.info("Disconnecting existing clients");
+		await Promise.allSettled(
+			clients.map(async (client) => {
+				if (client.transport) {
+					await client.transport.close();
+				}
+			}),
+		);
+		clearAllClientStates();
+	}
 
+	const servers = Object.entries(configuration.mcp.servers);
 	log.info(`Connecting to ${servers.length} servers`);
 
-	for (const [name, server] of servers) {
-		log.debug(`Connecting to ${name} server`);
+	const results = await Promise.allSettled(
+		servers.map(async ([name, server]) => {
+			const client = createClient();
+			const transport = await connect(client, server);
+			setClientState(name, { name, client, transport });
+			return name;
+		}),
+	);
 
-		const client = createClient();
-		const transport = await connect(client, server);
+	const successful = results.filter((r) => r.status === "fulfilled").length;
+	const failures = results.filter(
+		(r) => r.status === "rejected",
+	) as PromiseRejectedResult[];
 
-		setClientState(name, { name, client, transport });
-
-		log.debug(`Connected to ${name} server`);
+	for (const failure of failures) {
+		log.error("Failed to connect to client", failure.reason);
 	}
+
+	log.info(`Successfully connected to ${successful}/${servers.length} servers`);
 };

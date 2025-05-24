@@ -9,10 +9,11 @@ import {
 } from "bun:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { cleanup } from "../../src/cleanup";
 import * as dataModule from "../../src/data";
 import { logger } from "../../src/logger";
 import type { ClientState } from "../../src/types";
+
+import { cleanup } from "../../src/cleanup";
 
 describe("cleanup", () => {
 	let loggerInfoSpy: ReturnType<typeof spyOn>;

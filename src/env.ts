@@ -1,9 +1,12 @@
 declare module "bun" {
 	interface Env {
 		CONFIGURATION_URL: string;
+		CONFIGURATION_POLL_INTERVAL: string;
 	}
 }
 
 const CONFIGURATION_URL = process.env.CONFIGURATION_URL;
+const CONFIGURATION_POLL_INTERVAL =
+	Number(process.env.CONFIGURATION_POLL_INTERVAL) || 60000;
 
-export { CONFIGURATION_URL };
+export { CONFIGURATION_URL, CONFIGURATION_POLL_INTERVAL };
