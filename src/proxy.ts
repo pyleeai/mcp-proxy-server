@@ -19,6 +19,9 @@ export const proxy = async (
 ) => {
 	log.info("MCP Proxy Server starting");
 
+	let abortController: AbortController;
+	let configPolling: Promise<void>;
+
 	try {
 		setRequestHandlers(server);
 
@@ -35,14 +38,19 @@ export const proxy = async (
 
 		log.info("MCP Proxy Server started");
 
-		(async () => {
+		abortController = new AbortController();
+
+		configPolling = (async () => {
 			try {
 				for await (const config of configGen) {
+					if (abortController.signal.aborted) break;
 					log.info("Configuration changed, reconnecting clients");
 					await connectClients(config);
 				}
 			} catch (error) {
-				log.error("Error in configuration polling", error);
+				if (!abortController.signal.aborted) {
+					log.error("Error in configuration polling", error);
+				}
 			}
 		})();
 	} catch (error) {
@@ -51,6 +59,8 @@ export const proxy = async (
 
 	return {
 		[Symbol.dispose]: async () => {
+			abortController?.abort();
+			await configPolling?.catch(() => {});
 			await cleanup();
 			await server.close();
 		},
