@@ -91,7 +91,6 @@ export async function* configuration(
 	options?: { headers?: Record<string, string> },
 ): AsyncGenerator<Configuration, void, unknown> {
 	let currentConfiguration: Configuration | null = null;
-	let isFirstIteration = true;
 
 	while (true) {
 		try {
@@ -100,40 +99,31 @@ export async function* configuration(
 				options?.headers,
 			);
 
-			if (isFirstIteration) {
+			const configChanged = !currentConfiguration || !areConfigurationsEqual(currentConfiguration, newConfiguration);
+			
+			if (configChanged) {
+			  log.info("Configuration changed")
 				currentConfiguration = newConfiguration;
 				yield newConfiguration;
-				isFirstIteration = false;
-
-				// If polling is disabled, exit after first fetch
-				if (CONFIGURATION_POLL_INTERVAL <= 0) {
-					break;
-				}
-			} else {
-				const configChanged = !areConfigurationsEqual(currentConfiguration, newConfiguration);
-				
-				if (configChanged) {
-					log.info("Configuration changed");
-					currentConfiguration = newConfiguration;
-					yield newConfiguration;
-				}
 			}
 
-			// Wait for next poll interval (only if not exiting)
-			if (CONFIGURATION_POLL_INTERVAL > 0) {
-				await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
+			// If polling is disabled, exit after first fetch
+			if (CONFIGURATION_POLL_INTERVAL <= 0) {
+				break;
 			}
+
+			// Wait for next poll interval
+			await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
 		} catch (error) {
-			if (isFirstIteration) {
-				log.error("Error fetching configuration", error);
+			log.error("Error fetching configuration", error);
+			
+			// If polling is disabled, don't retry
+			if (CONFIGURATION_POLL_INTERVAL <= 0) {
 				return;
-			} else {
-				log.error("Error during configuration polling", error);
-				// Wait before retrying
-				if (CONFIGURATION_POLL_INTERVAL > 0) {
-					await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
-				}
 			}
+			
+			// Wait before retrying
+			await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
 		}
 	}
 }
