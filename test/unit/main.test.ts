@@ -23,9 +23,7 @@ describe("main", () => {
 	beforeAll(() => {
 		mockProxy = spyOn(proxyModule, "proxy").mockImplementation(() =>
 			Promise.resolve({
-				[Symbol.dispose]: () => {
-					return async () => {};
-				},
+				[Symbol.dispose]: async () => {},
 			}),
 		);
 		mockExitWithError = spyOn(processModule, "exitWithError");

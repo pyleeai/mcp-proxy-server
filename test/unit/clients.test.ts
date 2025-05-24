@@ -151,19 +151,17 @@ describe("connectClients", () => {
 
 	test("should disconnect existing clients before connecting new ones", async () => {
 		// Arrange
-		const mockClose1 = spyOn({}, "close" as any).mockImplementation(() =>
+		const mockTransport1 = { close: () => Promise.resolve() };
+		const mockClose1 = spyOn(mockTransport1, "close").mockImplementation(() =>
 			Promise.resolve(),
 		);
-		const mockClose2 = spyOn({}, "close" as any).mockImplementation(() =>
+		const mockTransport2 = { close: () => Promise.resolve() };
+		const mockClose2 = spyOn(mockTransport2, "close").mockImplementation(() =>
 			Promise.resolve(),
 		);
 
-		const existingTransport1 = {
-			close: mockClose1,
-		} as unknown as Transport;
-		const existingTransport2 = {
-			close: mockClose2,
-		} as unknown as Transport;
+		const existingTransport1 = mockTransport1 as unknown as Transport;
+		const existingTransport2 = mockTransport2 as unknown as Transport;
 
 		const existingClients: ClientState[] = [
 			{
@@ -204,13 +202,12 @@ describe("connectClients", () => {
 
 	test("should handle clients without transport during disconnection", async () => {
 		// Arrange
-		const mockClose = spyOn({}, "close" as any).mockImplementation(() =>
+		const mockTransport = { close: () => Promise.resolve() };
+		const mockClose = spyOn(mockTransport, "close").mockImplementation(() =>
 			Promise.resolve(),
 		);
 
-		const existingTransport = {
-			close: mockClose,
-		} as unknown as Transport;
+		const existingTransport = mockTransport as unknown as Transport;
 
 		const existingClients: ClientState[] = [
 			{

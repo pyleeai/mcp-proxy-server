@@ -476,7 +476,7 @@ describe("areConfigurationsEqual", () => {
 					test: {
 						command: "node",
 						args: ["script.js"],
-						env: { NODE_ENV: "production" },
+						env: ["NODE_ENV=production"],
 					},
 				},
 			},
@@ -487,7 +487,7 @@ describe("areConfigurationsEqual", () => {
 					test: {
 						command: "node",
 						args: ["script.js"],
-						env: { NODE_ENV: "development" },
+						env: ["NODE_ENV=development"],
 					},
 				},
 			},
