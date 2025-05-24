@@ -1,4 +1,4 @@
-import { CONFIGURATION_URL } from "./env";
+import { CONFIGURATION_URL, CONFIGURATION_POLL_INTERVAL } from "./env";
 import { ConfigurationError } from "./errors";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
@@ -6,7 +6,7 @@ import { fail } from "./utils";
 
 using log = logger;
 
-export const fetchConfiguration = async (
+const fetchConfiguration = async (
 	configurationUrl: string | undefined = CONFIGURATION_URL,
 	headers?: Record<string, string>,
 ): Promise<Configuration> => {
@@ -85,3 +85,48 @@ export const areConfigurationsEqual = (
 ): boolean => {
 	return JSON.stringify(config1) === JSON.stringify(config2);
 };
+
+export async function* configuration(
+	configurationUrl?: string,
+	options?: { headers?: Record<string, string> },
+): AsyncGenerator<Configuration, void, unknown> {
+	let currentConfiguration: Configuration | null = null;
+
+	// Yield initial configuration
+	try {
+		const initialConfig = await fetchConfiguration(configurationUrl, options?.headers);
+		currentConfiguration = initialConfig;
+		yield initialConfig;
+	} catch (error) {
+		log.error("Error fetching initial configuration", error);
+		return;
+	}
+
+	// If polling is disabled, return after initial configuration
+	if (CONFIGURATION_POLL_INTERVAL <= 0) {
+		return;
+	}
+
+	// Start polling for configuration changes
+	while (true) {
+		try {
+			await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
+			
+			const newConfiguration = await fetchConfiguration(
+				configurationUrl,
+				options?.headers,
+			);
+
+			if (
+				!currentConfiguration ||
+				!areConfigurationsEqual(currentConfiguration, newConfiguration)
+			) {
+				log.info("Configuration changed");
+				currentConfiguration = newConfiguration;
+				yield newConfiguration;
+			}
+		} catch (error) {
+			log.error("Error during configuration polling", error);
+		}
+	}
+}

@@ -8,24 +8,24 @@ import { proxy, server } from "../../src/proxy";
 
 describe("proxy", () => {
 	let mockCleanup: ReturnType<typeof spyOn>;
-	let mockFetchConfiguration: ReturnType<typeof spyOn>;
+	let mockConfiguration: ReturnType<typeof spyOn>;
 	let mockConnectClients: ReturnType<typeof spyOn>;
 	let mockSetRequestHandlers: ReturnType<typeof spyOn>;
 	let mockServerConnect: ReturnType<typeof spyOn>;
 	let mockServerClose: ReturnType<typeof spyOn>;
 	let mockLoggerInfo: ReturnType<typeof spyOn>;
 
+	const defaultConfig = { mcp: { servers: {} } };
+
 	beforeEach(() => {
 		mockCleanup = spyOn(cleanupModule, "cleanup").mockImplementation(
 			async () => {},
 		);
-		mockFetchConfiguration = spyOn(
-			configModule,
-			"fetchConfiguration",
-		).mockImplementation(async () => ({
-			clients: [],
-			mcp: { servers: {} },
-		}));
+		mockConfiguration = spyOn(configModule, "configuration").mockImplementation(
+			async function* () {
+				yield defaultConfig;
+			}
+		);
 		mockConnectClients = spyOn(
 			clientsModule,
 			"connectClients",
@@ -45,7 +45,7 @@ describe("proxy", () => {
 
 	afterEach(() => {
 		mockCleanup.mockRestore();
-		mockFetchConfiguration.mockRestore();
+		mockConfiguration.mockRestore();
 		mockConnectClients.mockRestore();
 		mockSetRequestHandlers.mockRestore();
 		mockServerConnect.mockRestore();
@@ -53,87 +53,59 @@ describe("proxy", () => {
 		mockLoggerInfo.mockRestore();
 	});
 
-	describe("Symbol.dispose", () => {
-		test("disposes correctly", async () => {
-			// Arrange
-			const proxyInstance = await proxy();
-
-			// Act
-			const disposeFunc = proxyInstance[Symbol.dispose]();
-			await disposeFunc();
-
-			// Assert
-			expect(mockCleanup).toHaveBeenCalledTimes(1);
-			expect(mockServerClose).toHaveBeenCalledTimes(1);
-		});
-
-		test("returns a proper disposable with Symbol.dispose", async () => {
-			// Arrange
-			const proxyInstance = await proxy();
-
-			// Act
-			const disposeFunction = proxyInstance[Symbol.dispose]();
-
-			// Assert
-			expect(typeof disposeFunction).toBe("function");
-
-			// Act
-			await disposeFunction();
-
-			// Assert
-			expect(mockCleanup).toHaveBeenCalledTimes(1);
-			expect(mockServerClose).toHaveBeenCalledTimes(1);
-		});
-	});
-
 	test("successfully initializes the proxy server", async () => {
 		// Act
-		await proxy();
+		const result = await proxy();
+
+		// Give the async generator time to initialize
+		await new Promise(resolve => setTimeout(resolve, 0));
 
 		// Assert
-		expect(mockFetchConfiguration).toHaveBeenCalledTimes(1);
-		expect(mockConnectClients).toHaveBeenCalledTimes(1);
-		expect(mockSetRequestHandlers).toHaveBeenCalledTimes(1);
+		expect(mockConfiguration).toHaveBeenCalledTimes(1);
+		expect(mockSetRequestHandlers).toHaveBeenCalledWith(server);
+		expect(mockConnectClients).toHaveBeenCalledWith(defaultConfig);
 		expect(mockServerConnect).toHaveBeenCalledTimes(1);
-		expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server started");
+		expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
+		expect(typeof result[Symbol.dispose]).toBe("function");
 	});
 
 	test("accepts configurationUrl parameter", async () => {
 		// Arrange
-		const customConfigUrl = "https://example.com/config.json";
+		const customConfigUrl = "https://custom-config.example.com";
 
 		// Act
 		await proxy(customConfigUrl);
 
 		// Assert
-		expect(mockFetchConfiguration).toHaveBeenCalledWith(
+		expect(mockConfiguration).toHaveBeenCalledWith(
 			customConfigUrl,
 			undefined,
 		);
 	});
 
-	test("accepts headers parameter and passes it to fetchConfiguration", async () => {
+	test("accepts headers parameter and passes it to configuration", async () => {
 		// Arrange
-		const customConfigUrl = "https://example.com/config.json";
-		const customHeaders = { "X-Custom-Header": "TestValue" };
+		const customConfigUrl = "https://custom-config.example.com";
+		const customHeaders = {
+			"X-Custom-Header": "test-value",
+		};
 
 		// Act
 		await proxy(customConfigUrl, { headers: customHeaders });
 
 		// Assert
-		expect(mockFetchConfiguration).toHaveBeenCalledWith(
+		expect(mockConfiguration).toHaveBeenCalledWith(
 			customConfigUrl,
-			customHeaders,
+			{ headers: customHeaders },
 		);
 	});
 
 	describe("error handling", () => {
-		test("handles fetchConfiguration error", async () => {
+		test("handles configuration generator error", async () => {
 			// Arrange
-			const testError = new Error("Failed to fetch configuration");
-			mockFetchConfiguration.mockImplementationOnce(() =>
-				Promise.reject(testError),
-			);
+			mockConfiguration.mockImplementation(async function* () {
+				throw new Error("Configuration error");
+			});
 
 			// Act & Assert
 			return expect(proxy()).rejects.toThrow(
@@ -143,10 +115,7 @@ describe("proxy", () => {
 
 		test("handles connectClients error", async () => {
 			// Arrange
-			const testError = new Error("Failed to connect clients");
-			mockConnectClients.mockImplementationOnce(() =>
-				Promise.reject(testError),
-			);
+			mockConnectClients.mockRejectedValue(new Error("Connect error"));
 
 			// Act & Assert
 			return expect(proxy()).rejects.toThrow(
@@ -156,8 +125,7 @@ describe("proxy", () => {
 
 		test("handles server connect error", async () => {
 			// Arrange
-			const testError = new Error("Failed to connect server");
-			mockServerConnect.mockImplementationOnce(() => Promise.reject(testError));
+			mockServerConnect.mockRejectedValue(new Error("Server connect error"));
 
 			// Act & Assert
 			return expect(proxy()).rejects.toThrow(
@@ -167,32 +135,42 @@ describe("proxy", () => {
 
 		test("propagates cleanup error during dispose", async () => {
 			// Arrange
-			const testError = new Error("Cleanup error");
-			mockCleanup.mockImplementationOnce(() => Promise.reject(testError));
-			const proxyInstance = await proxy();
-			const disposeFunc = proxyInstance[Symbol.dispose]();
+			mockCleanup.mockRejectedValue(new Error("Cleanup error"));
+			const result = await proxy();
 
 			// Act & Assert
-			expect(disposeFunc()).rejects.toThrow("Cleanup error");
-
-			// Assert
-			expect(mockCleanup).toHaveBeenCalledTimes(1);
-			expect(mockServerClose).toHaveBeenCalledTimes(0);
+			return expect(result[Symbol.dispose]()).rejects.toThrow("Cleanup error");
 		});
 
 		test("propagates server close error during dispose", async () => {
 			// Arrange
-			const testError = new Error("Server close error");
-			mockServerClose.mockImplementationOnce(() => Promise.reject(testError));
-			const proxyInstance = await proxy();
-			const disposeFunc = proxyInstance[Symbol.dispose]();
+			mockServerClose.mockRejectedValue(new Error("Server close error"));
+			const result = await proxy();
 
 			// Act & Assert
-			expect(disposeFunc()).rejects.toThrow("Server close error");
+			return expect(result[Symbol.dispose]()).rejects.toThrow("Server close error");
+		});
+	});
+
+	describe("Symbol.dispose", () => {
+		test("disposes correctly", async () => {
+			// Arrange
+			const result = await proxy();
+
+			// Act
+			await result[Symbol.dispose]();
 
 			// Assert
 			expect(mockCleanup).toHaveBeenCalledTimes(1);
 			expect(mockServerClose).toHaveBeenCalledTimes(1);
+		});
+
+		test("returns a proper disposable with Symbol.dispose", async () => {
+			// Act
+			const result = await proxy();
+
+			// Assert
+			expect(typeof result[Symbol.dispose]).toBe("function");
 		});
 	});
 });
