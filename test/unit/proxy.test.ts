@@ -107,6 +107,7 @@ describe("proxy", () => {
 		test("handles configuration generator returning done immediately", async () => {
 			// Arrange
 			mockConfiguration.mockImplementation(async function* () {
+				yield undefined;
 				return;
 			});
 
@@ -118,6 +119,7 @@ describe("proxy", () => {
 		test("handles configuration generator error", async () => {
 			// Arrange
 			mockConfiguration.mockImplementation(async function* () {
+				yield undefined;
 				throw new Error("Configuration error");
 			});
 
