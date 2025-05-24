@@ -1,7 +1,6 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { cleanup } from "./cleanup";
 import { connectClients } from "./clients";
-import { clearAllClientStates, getAllClientStates } from "./data";
 import { configuration } from "./config";
 import { ProxyError } from "./errors";
 import { setRequestHandlers } from "./handlers";
@@ -37,18 +36,7 @@ export const proxy = async (
 		(async () => {
 			try {
 				for await (const config of configGen) {
-					log.info("Configuration changed, reconnecting all clients");
-
-					const clients = getAllClientStates();
-					await Promise.allSettled(
-						clients.map(async (client) => {
-							if (client.transport) {
-								await client.transport.close();
-							}
-						}),
-					);
-					clearAllClientStates();
-
+					log.info("Configuration changed, reconnecting clients");
 					await connectClients(config);
 				}
 			} catch (error) {
