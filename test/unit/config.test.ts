@@ -7,9 +7,14 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
-import { configuration, areConfigurationsEqual } from "../../src/config";
+import {
+	configuration,
+	areConfigurationsEqual,
+	startConfigurationPolling,
+} from "../../src/config";
 import { logger } from "../../src/logger";
 import { ConfigurationError } from "../../src/errors";
+import * as clientsModule from "../../src/clients";
 
 const ENV_MODULE = "../../src/env";
 let mockConfigUrl = "https://example.com/config";
@@ -505,5 +510,148 @@ describe("areConfigurationsEqual", () => {
 		};
 
 		expect(areConfigurationsEqual(config1, config2)).toBe(false);
+	});
+});
+
+describe("startConfigurationPolling", () => {
+	let mockConnectClients: ReturnType<typeof spyOn>;
+	let loggerInfoSpy: ReturnType<typeof spyOn>;
+	let loggerErrorSpy: ReturnType<typeof spyOn>;
+
+	const defaultConfig = { mcp: { servers: {} } };
+
+	beforeEach(() => {
+		mockConnectClients = spyOn(
+			clientsModule,
+			"connectClients",
+		).mockImplementation(async () => {});
+		loggerInfoSpy = spyOn(logger, "info");
+		loggerErrorSpy = spyOn(logger, "error");
+	});
+
+	afterEach(() => {
+		mockConnectClients.mockRestore();
+		loggerInfoSpy.mockRestore();
+		loggerErrorSpy.mockRestore();
+	});
+
+	test("handles configuration changes and reconnects clients", async () => {
+		// Arrange
+		const config1 = { mcp: { servers: { server1: {} } } };
+		const config2 = { mcp: { servers: { server2: {} } } };
+		const abortController = new AbortController();
+
+		async function* mockConfigGen() {
+			yield config1;
+			yield config2;
+		}
+
+		// Act
+		const pollingPromise = startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+		);
+
+		// Give time for polling to process
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		abortController.abort();
+		await pollingPromise;
+
+		// Assert
+		expect(mockConnectClients).toHaveBeenCalledWith(config1);
+		expect(mockConnectClients).toHaveBeenCalledWith(config2);
+		expect(mockConnectClients).toHaveBeenCalledTimes(2);
+		expect(loggerInfoSpy).toHaveBeenCalledWith(
+			"Configuration changed, reconnecting clients",
+		);
+	});
+
+	test("stops polling when aborted", async () => {
+		// Arrange
+		const abortController = new AbortController();
+		let generatorRunning = true;
+
+		async function* mockConfigGen() {
+			yield defaultConfig;
+			while (generatorRunning) {
+				await new Promise((resolve) => setTimeout(resolve, 5));
+				yield defaultConfig;
+			}
+		}
+
+		// Act
+		const pollingPromise = startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+		);
+
+		// Give time for polling to start
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		abortController.abort();
+		generatorRunning = false;
+		await pollingPromise;
+
+		// Assert
+		expect(mockConnectClients).toHaveBeenCalled();
+	});
+
+	test("logs errors when not aborted", async () => {
+		// Arrange
+		const abortController = new AbortController();
+
+		async function* mockConfigGen() {
+			yield defaultConfig;
+			throw new Error("Polling error");
+		}
+
+		// Act
+		await startConfigurationPolling(mockConfigGen(), abortController);
+
+		// Assert
+		expect(loggerErrorSpy).toHaveBeenCalledWith(
+			"Error in configuration polling",
+			expect.any(Error),
+		);
+	});
+
+	test("does not log errors when aborted", async () => {
+		// Arrange
+		const abortController = new AbortController();
+		abortController.abort();
+
+		async function* mockConfigGen() {
+			yield defaultConfig;
+			throw new Error("Polling error");
+		}
+
+		// Act
+		await startConfigurationPolling(mockConfigGen(), abortController);
+
+		// Assert
+		expect(loggerErrorSpy).not.toHaveBeenCalled();
+	});
+
+	test("breaks loop when abort signal is triggered", async () => {
+		// Arrange
+		const abortController = new AbortController();
+		let yieldCount = 0;
+
+		async function* mockConfigGen() {
+			while (true) {
+				yieldCount++;
+				yield defaultConfig;
+				if (yieldCount === 2) {
+					abortController.abort();
+				}
+			}
+		}
+
+		// Act
+		await startConfigurationPolling(mockConfigGen(), abortController);
+
+		// Assert
+		expect(yieldCount).toBe(3);
+		expect(mockConnectClients).toHaveBeenCalledTimes(2);
 	});
 });

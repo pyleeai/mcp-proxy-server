@@ -1,4 +1,5 @@
 import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
+import { connectClients } from "./clients";
 import { ConfigurationError } from "./errors";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
@@ -120,3 +121,20 @@ export async function* configuration(
 		await delay(CONFIGURATION_POLL_INTERVAL);
 	}
 }
+
+export const startConfigurationPolling = async (
+	configGen: AsyncGenerator<Configuration>,
+	abortController: AbortController,
+) => {
+	try {
+		for await (const config of configGen) {
+			if (abortController.signal.aborted) break;
+			log.info("Configuration changed, reconnecting clients");
+			await connectClients(config);
+		}
+	} catch (error) {
+		if (!abortController.signal.aborted) {
+			log.error("Error in configuration polling", error);
+		}
+	}
+};

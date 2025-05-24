@@ -69,56 +69,6 @@ describe("proxy", () => {
 		expect(typeof result[Symbol.dispose]).toBe("function");
 	});
 
-	test("handles configuration changes in background polling", async () => {
-		// Arrange
-		const config1 = { mcp: { servers: { server1: {} } } };
-		const config2 = { mcp: { servers: { server2: {} } } };
-
-		mockConfiguration.mockImplementation(async function* () {
-			yield config1;
-			yield config2;
-		});
-
-		// Act
-		const result = await proxy();
-
-		// Give time for background polling to process
-		await new Promise((resolve) => setTimeout(resolve, 10));
-
-		// Assert
-		expect(mockConnectClients).toHaveBeenCalledWith(config1);
-		expect(mockConnectClients).toHaveBeenCalledWith(config2);
-		expect(mockConnectClients).toHaveBeenCalledTimes(2);
-
-		// Cleanup
-		await result[Symbol.dispose]();
-	});
-
-	test("stops configuration polling when aborted", async () => {
-		// Arrange
-		let generatorRunning = true;
-		mockConfiguration.mockImplementation(async function* () {
-			yield defaultConfig;
-			while (generatorRunning) {
-				await new Promise((resolve) => setTimeout(resolve, 5));
-				yield defaultConfig;
-			}
-		});
-
-		// Act
-		const result = await proxy();
-
-		// Give time for polling to start
-		await new Promise((resolve) => setTimeout(resolve, 10));
-
-		// Dispose should abort the polling
-		generatorRunning = false;
-		await result[Symbol.dispose]();
-
-		// Assert
-		expect(mockConnectClients).toHaveBeenCalled();
-	});
-
 	test("accepts configurationUrl parameter", async () => {
 		// Arrange
 		const customConfigUrl = "https://custom-config.example.com";
@@ -158,35 +108,6 @@ describe("proxy", () => {
 			return expect(proxy()).rejects.toThrow(
 				/Failed to start MCP Proxy Server/,
 			);
-		});
-
-		test("logs configuration polling errors when not aborted", async () => {
-			// Arrange
-			const mockLoggerError = spyOn(
-				loggerModule.logger,
-				"error",
-			).mockImplementation(() => "");
-
-			mockConfiguration.mockImplementation(async function* () {
-				yield defaultConfig;
-				throw new Error("Polling error");
-			});
-
-			// Act
-			const result = await proxy();
-
-			// Give time for background polling to process the error
-			await new Promise((resolve) => setTimeout(resolve, 10));
-
-			// Assert
-			expect(mockLoggerError).toHaveBeenCalledWith(
-				"Error in configuration polling",
-				expect.any(Error),
-			);
-
-			// Cleanup
-			mockLoggerError.mockRestore();
-			await result[Symbol.dispose]();
 		});
 
 		test("handles connectClients error", async () => {
@@ -249,38 +170,6 @@ describe("proxy", () => {
 
 			// Assert
 			expect(typeof result[Symbol.dispose]).toBe("function");
-		});
-
-		test("aborts background configuration polling on dispose", async () => {
-			// Arrange
-			let pollingStopped = false;
-			mockConfiguration.mockImplementation(async function* () {
-				yield defaultConfig;
-				try {
-					while (true) {
-						await new Promise((resolve) => setTimeout(resolve, 5));
-						yield defaultConfig;
-					}
-				} finally {
-					pollingStopped = true;
-				}
-			});
-
-			const result = await proxy();
-
-			// Give time for polling to start
-			await new Promise((resolve) => setTimeout(resolve, 10));
-
-			// Act
-			await result[Symbol.dispose]();
-
-			// Give time for cleanup
-			await new Promise((resolve) => setTimeout(resolve, 10));
-
-			// Assert
-			expect(pollingStopped).toBe(true);
-			expect(mockCleanup).toHaveBeenCalledTimes(1);
-			expect(mockServerClose).toHaveBeenCalledTimes(1);
 		});
 	});
 });

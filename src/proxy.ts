@@ -1,7 +1,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { cleanup } from "./cleanup";
 import { connectClients } from "./clients";
-import { configuration } from "./config";
+import { configuration, startConfigurationPolling } from "./config";
 import { ProxyError } from "./errors";
 import { setRequestHandlers } from "./handlers";
 import { logger } from "./logger";
@@ -19,8 +19,9 @@ export const proxy = async (
 ) => {
 	log.info("MCP Proxy Server starting");
 
-	let abortController: AbortController;
 	let configPolling: Promise<void>;
+	const abortController = new AbortController();
+	const transport = new StdioServerTransport();
 
 	try {
 		setRequestHandlers(server);
@@ -34,25 +35,11 @@ export const proxy = async (
 
 		const config = initialResult.value as Configuration;
 		await connectClients(config);
-		await server.connect(new StdioServerTransport());
+		await server.connect(transport);
+
+		configPolling = startConfigurationPolling(configGen, abortController);
 
 		log.info("MCP Proxy Server started");
-
-		abortController = new AbortController();
-
-		configPolling = (async () => {
-			try {
-				for await (const config of configGen) {
-					if (abortController.signal.aborted) break;
-					log.info("Configuration changed, reconnecting clients");
-					await connectClients(config);
-				}
-			} catch (error) {
-				if (!abortController.signal.aborted) {
-					log.error("Error in configuration polling", error);
-				}
-			}
-		})();
 	} catch (error) {
 		fail("Failed to start MCP Proxy Server", ProxyError, error);
 	}
