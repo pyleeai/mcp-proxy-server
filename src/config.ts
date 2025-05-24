@@ -113,7 +113,7 @@ export async function* configuration(
 		if (CONFIGURATION_POLL_INTERVAL <= 0) {
 			break;
 		}
-	
-		await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
+
+		await delay(CONFIGURATION_POLL_INTERVAL);
 	}
 }
