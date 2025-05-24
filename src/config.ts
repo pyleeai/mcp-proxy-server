@@ -91,42 +91,49 @@ export async function* configuration(
 	options?: { headers?: Record<string, string> },
 ): AsyncGenerator<Configuration, void, unknown> {
 	let currentConfiguration: Configuration | null = null;
+	let isFirstIteration = true;
 
-	// Yield initial configuration
-	try {
-		const initialConfig = await fetchConfiguration(configurationUrl, options?.headers);
-		currentConfiguration = initialConfig;
-		yield initialConfig;
-	} catch (error) {
-		log.error("Error fetching initial configuration", error);
-		return;
-	}
-
-	// If polling is disabled, return after initial configuration
-	if (CONFIGURATION_POLL_INTERVAL <= 0) {
-		return;
-	}
-
-	// Start polling for configuration changes
 	while (true) {
 		try {
-			await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
-			
 			const newConfiguration = await fetchConfiguration(
 				configurationUrl,
 				options?.headers,
 			);
 
-			if (
-				!currentConfiguration ||
-				!areConfigurationsEqual(currentConfiguration, newConfiguration)
-			) {
-				log.info("Configuration changed");
+			if (isFirstIteration) {
 				currentConfiguration = newConfiguration;
 				yield newConfiguration;
+				isFirstIteration = false;
+
+				// If polling is disabled, exit after first fetch
+				if (CONFIGURATION_POLL_INTERVAL <= 0) {
+					break;
+				}
+			} else {
+				const configChanged = !areConfigurationsEqual(currentConfiguration, newConfiguration);
+				
+				if (configChanged) {
+					log.info("Configuration changed");
+					currentConfiguration = newConfiguration;
+					yield newConfiguration;
+				}
+			}
+
+			// Wait for next poll interval (only if not exiting)
+			if (CONFIGURATION_POLL_INTERVAL > 0) {
+				await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
 			}
 		} catch (error) {
-			log.error("Error during configuration polling", error);
+			if (isFirstIteration) {
+				log.error("Error fetching configuration", error);
+				return;
+			} else {
+				log.error("Error during configuration polling", error);
+				// Wait before retrying
+				if (CONFIGURATION_POLL_INTERVAL > 0) {
+					await new Promise(resolve => setTimeout(resolve, CONFIGURATION_POLL_INTERVAL));
+				}
+			}
 		}
 	}
 }
