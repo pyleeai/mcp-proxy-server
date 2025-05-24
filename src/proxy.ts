@@ -26,33 +26,44 @@ export const proxy = async (
 		setRequestHandlers(server);
 
 		const configGen = configuration(configurationUrl, options);
-		const initialResult = await configGen.next();
-
-		if (initialResult.done) {
-			fail("Failed to get initial configuration", ProxyError);
-		}
-
-		const config = initialResult.value as Configuration;
-		await connectClients(config);
-		await server.connect(new StdioServerTransport());
-
-		log.info("MCP Proxy Server started");
-
 		abortController = new AbortController();
+		
+		let startupResolve!: () => void;
+		let startupReject!: (error: any) => void;
+		const startupPromise = new Promise<void>((resolve, reject) => {
+			startupResolve = resolve;
+			startupReject = reject;
+		});
+		
+		let startupComplete = false;
 
 		configPolling = (async () => {
 			try {
 				for await (const config of configGen) {
 					if (abortController.signal.aborted) break;
-					log.info("Configuration changed, reconnecting clients");
+					
 					await connectClients(config);
+					
+					if (!startupComplete) {
+						await server.connect(new StdioServerTransport());
+						log.info("MCP Proxy Server started");
+						startupComplete = true;
+						startupResolve();
+					} else {
+						log.info("Configuration changed, reconnecting clients");
+					}
 				}
 			} catch (error) {
-				if (!abortController.signal.aborted) {
+				if (!startupComplete) {
+					startupReject(error);
+				} else if (!abortController.signal.aborted) {
 					log.error("Error in configuration polling", error);
 				}
 			}
 		})();
+		
+		await startupPromise;
+		
 	} catch (error) {
 		fail("Failed to start MCP Proxy Server", ProxyError, error);
 	}
