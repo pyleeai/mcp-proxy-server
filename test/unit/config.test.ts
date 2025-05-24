@@ -9,6 +9,7 @@ import {
 } from "bun:test";
 import { fetchConfiguration, areConfigurationsEqual } from "../../src/config";
 import { logger } from "../../src/logger";
+import { ConfigurationError } from "../../src/errors";
 
 const ENV_MODULE = "../../src/env";
 let mockConfigUrl = "https://example.com/config";
@@ -149,7 +150,7 @@ describe("fetchConfiguration", () => {
 		);
 	});
 
-	test("returns default configuration on JSON parsing error", async () => {
+	test("throws error on JSON parsing failure", async () => {
 		// Arrange
 		fetchSpy.mockImplementation(() =>
 			Promise.resolve(
@@ -160,21 +161,14 @@ describe("fetchConfiguration", () => {
 			),
 		);
 
-		// Act
-		const result = await fetchConfiguration();
-
-		// Assert
-		expect(result).toEqual(defaultConfiguration);
-		expect(loggerWarnSpy).toHaveBeenCalledWith(
-			"Failed to parse configuration, using default empty configuration",
-			expect.any(Error),
-		);
+		// Act & Assert
+		await expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Fetching configuration from https://example.com/config",
 		);
 	});
 
-	test("returns default configuration when configuration is invalid", async () => {
+	test("throws error when configuration is invalid", async () => {
 		// Arrange
 		const invalidConfigurations = [
 			{},
@@ -193,16 +187,15 @@ describe("fetchConfiguration", () => {
 				),
 			);
 
-			// Act
-			const result = await fetchConfiguration();
-
-			// Assert
-			expect(result).toEqual(defaultConfiguration);
-			expect(loggerWarnSpy).toHaveBeenCalledWith(
-				"Invalid configuration structure, using default empty configuration",
+			// Act & Assert
+			await expect(fetchConfiguration()).rejects.toThrow(ConfigurationError);
+			expect(loggerDebugSpy).toHaveBeenCalledWith(
+				"Fetching configuration from https://example.com/config",
 			);
 		}
 	});
+
+
 
 	test("successfully fetches and parses configuration", async () => {
 		// Arrange

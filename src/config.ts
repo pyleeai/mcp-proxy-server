@@ -13,8 +13,8 @@ export const fetchConfiguration = async (
 	const timeoutMs = 10000;
 	const defaultConfiguration: Configuration = {
 		mcp: {
-			servers: {},
-		},
+			servers: {}
+		}
 	};
 
 	if (!configurationUrl) {
@@ -25,9 +25,7 @@ export const fetchConfiguration = async (
 	try {
 		new URL(configurationUrl);
 	} catch {
-		log.warn(
-			"The configuration URL is not valid, using default empty configuration",
-		);
+		log.warn("The configuration URL is not valid, using default empty configuration");
 		return defaultConfiguration;
 	}
 
@@ -69,18 +67,11 @@ export const fetchConfiguration = async (
 	try {
 		configuration = await response.json();
 	} catch (error) {
-		log.warn(
-			"Failed to parse configuration, using default empty configuration",
-			error,
-		);
-		return defaultConfiguration;
+		return fail("Failed to parse configuration", ConfigurationError);
 	}
 
 	if (!configuration?.mcp?.servers) {
-		log.warn(
-			"Invalid configuration structure, using default empty configuration",
-		);
-		return defaultConfiguration;
+		return fail("Invalid configuration", ConfigurationError);
 	}
 
 	log.debug(`Successfully loaded configuration from ${configurationUrl}`);
