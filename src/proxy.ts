@@ -19,13 +19,9 @@ export const proxy = async (
 ) => {
 	log.info("MCP Proxy Server starting");
 
-	let isRunning = true;
-
 	try {
-		const transport = new StdioServerTransport();
 		setRequestHandlers(server);
 
-		// Get initial configuration and set up
 		const configGen = configuration(configurationUrl, options);
 		const initialResult = await configGen.next();
 		
@@ -34,19 +30,15 @@ export const proxy = async (
 		}
 
 		await connectClients(initialResult.value);
-		await server.connect(transport);
+		await server.connect(new StdioServerTransport());
 		
 		log.info("MCP Proxy Server started");
 
-		// Start configuration polling in background
-		const startPolling = async () => {
+		(async () => {
 			try {
 				for await (const config of configGen) {
-					if (!isRunning) break;
-					
 					log.info("Configuration changed, reconnecting all clients");
 
-					// Disconnect all existing clients
 					const clients = getAllClientStates();
 					await Promise.allSettled(
 						clients.map(async (client) => {
@@ -57,15 +49,12 @@ export const proxy = async (
 					);
 					clearAllClientStates();
 
-					// Connect to new configuration
 					await connectClients(config);
 				}
 			} catch (error) {
 				log.error("Error in configuration polling", error);
 			}
-		};
-		
-		startPolling();
+		})();
 
 	} catch (error) {
 		fail("Failed to start MCP Proxy Server", ProxyError, error);
@@ -73,7 +62,6 @@ export const proxy = async (
 
 	return {
 		[Symbol.dispose]: async () => {
-			isRunning = false;
 			await cleanup();
 			await server.close();
 		},
