@@ -106,6 +106,7 @@ describe("proxy", () => {
 	describe("error handling", () => {
 		test("handles configuration generator returning done immediately", async () => {
 			// Arrange
+			// biome-ignore lint/correctness/useYield: intentional test case for generator that returns immediately
 			mockConfiguration.mockImplementation(async function* () {
 				return;
 			});
@@ -117,6 +118,7 @@ describe("proxy", () => {
 
 		test("handles configuration generator error", async () => {
 			// Arrange
+			// biome-ignore lint/correctness/useYield: intentional test case for generator that throws immediately
 			mockConfiguration.mockImplementation(async function* () {
 				throw new Error("Configuration error");
 			});
