@@ -99,24 +99,7 @@ describe("connectClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(3);
 		expect(mockConnect).toHaveBeenCalledTimes(3);
 		expect(mockSetClientState).toHaveBeenCalledTimes(3);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Connecting to httpServer server",
-		);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Connected to httpServer server",
-		);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Connecting to commandServer server",
-		);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Connected to commandServer server",
-		);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Connecting to fullServer server",
-		);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Connected to fullServer server",
-		);
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 3/3 servers");
 		expect(mockClearAllClientStates).not.toHaveBeenCalled();
 	});
 
@@ -140,14 +123,7 @@ describe("connectClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(2);
 		expect(mockConnect).toHaveBeenCalledTimes(2);
 		expect(mockSetClientState).toHaveBeenCalledTimes(2);
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Connecting to server1 server",
-		);
-		expect(mockLoggerDebug).toHaveBeenCalledWith("Connected to server1 server");
-		expect(mockLoggerDebug).toHaveBeenCalledWith(
-			"Connecting to server2 server",
-		);
-		expect(mockLoggerDebug).toHaveBeenCalledWith("Connected to server2 server");
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Successfully connected to 2/2 servers");
 		expect(mockConnect).toHaveBeenCalledWith(mockClient, {
 			url: "http://server1.example.com",
 		});

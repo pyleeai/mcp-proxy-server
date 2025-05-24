@@ -23,31 +23,23 @@ export const connectClients = async (
 	}
 
 	const servers = Object.entries(configuration.mcp.servers);
-
 	log.info(`Connecting to ${servers.length} servers`);
 
 	const results = await Promise.allSettled(
 		servers.map(async ([name, server]) => {
-			log.debug(`Connecting to ${name} server`);
-
 			const client = createClient();
 			const transport = await connect(client, server);
-
 			setClientState(name, { name, client, transport });
-
-			log.debug(`Connected to ${name} server`);
 			return name;
 		})
 	);
 
-	const successful = results.filter(result => result.status === 'fulfilled').length;
-	const failed = results.filter(result => result.status === 'rejected');
+	const successful = results.filter(r => r.status === 'fulfilled').length;
+	const failures = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
 	
-	if (failed.length > 0) {
-		for (const failure of failed) {
-			log.error("Failed to connect to client", failure.reason);
-		}
-	}
+	failures.forEach(failure => 
+		log.error("Failed to connect to client", failure.reason)
+	);
 	
 	log.info(`Successfully connected to ${successful}/${servers.length} servers`);
 };
