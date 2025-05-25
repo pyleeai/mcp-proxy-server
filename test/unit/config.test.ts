@@ -13,7 +13,7 @@ import {
 	startConfigurationPolling,
 } from "../../src/config";
 import { logger } from "../../src/logger";
-import { ConfigurationError } from "../../src/errors";
+import { ConfigurationError, AuthenticationError } from "../../src/errors";
 import * as clientsModule from "../../src/clients";
 
 const ENV_MODULE = "../../src/env";
@@ -177,7 +177,28 @@ describe("configuration", () => {
 		expect(loggerWarnSpy).toHaveBeenCalled();
 	});
 
-	test("yields default configuration on HTTP error", async () => {
+	test("throws AuthenticationError on 401 HTTP error", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(null, {
+					status: 401,
+					statusText: "Unauthorized",
+				}),
+			),
+		);
+
+		// Act & Assert
+		const gen = configuration();
+		await expect(gen.next()).rejects.toThrow(AuthenticationError);
+	});
+
+	test("yields default configuration on 404 HTTP error", async () => {
 		// Arrange
 		mockConfigUrl = "https://example.com/config";
 		mock.module(ENV_MODULE, () => ({
@@ -205,6 +226,66 @@ describe("configuration", () => {
 		expect(warnCall[0]).toContain("Error fetching configuration");
 		expect(warnCall[0]).toContain("404");
 		expect(warnCall[0]).toContain("Not Found");
+	});
+
+	test("yields default configuration on 500 HTTP error", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(null, {
+					status: 500,
+					statusText: "Internal Server Error",
+				}),
+			),
+		);
+
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Error fetching configuration");
+		expect(warnCall[0]).toContain("500");
+		expect(warnCall[0]).toContain("Internal Server Error");
+	});
+
+	test("yields default configuration on 403 HTTP error", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(null, {
+					status: 403,
+					statusText: "Forbidden",
+				}),
+			),
+		);
+
+		// Act
+		const gen = configuration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Error fetching configuration");
+		expect(warnCall[0]).toContain("403");
+		expect(warnCall[0]).toContain("Forbidden");
 	});
 
 	test("handles JSON parsing failure", async () => {
