@@ -415,7 +415,9 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = generateConfiguration(mockConfigUrl, { headers: customHeaders });
+		const gen = generateConfiguration(mockConfigUrl, {
+			headers: customHeaders,
+		});
 		await gen.next();
 
 		// Assert
@@ -446,7 +448,9 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = generateConfiguration(mockConfigUrl, { headers: customHeaders });
+		const gen = generateConfiguration(mockConfigUrl, {
+			headers: customHeaders,
+		});
 		await gen.next();
 
 		// Assert

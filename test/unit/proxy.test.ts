@@ -154,8 +154,10 @@ describe("proxy", () => {
 				expect.unreachable("Expected proxy to throw");
 			} catch (error) {
 				expect(error).toBeInstanceOf(AuthenticationError);
-				expect(error.name).toBe("AuthenticationError");
-				expect(error.message).toBe("Unauthorized access");
+				expect((error as AuthenticationError).name).toBe("AuthenticationError");
+				expect((error as AuthenticationError).message).toBe(
+					"Unauthorized access",
+				);
 				expect(error).toBe(originalError);
 			}
 		});
@@ -189,7 +191,7 @@ describe("proxy", () => {
 				expect.unreachable("Expected proxy to throw");
 			} catch (error) {
 				expect(error).toBeInstanceOf(Error);
-				expect(error.message).toBe("Server setup error");
+				expect((error as Error).message).toBe("Server setup error");
 				expect(error).toBe(originalError);
 			}
 		});
