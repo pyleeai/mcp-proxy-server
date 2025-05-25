@@ -2,7 +2,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { cleanup } from "./cleanup";
 import { connectClients } from "./clients";
 import { configuration, startConfigurationPolling } from "./config";
-import { ProxyError, AuthenticationError, ConfigurationError } from "./errors";
+import { ProxyError, AuthenticationError } from "./errors";
 import { setRequestHandlers } from "./handlers";
 import { logger } from "./logger";
 import { createServer } from "./server";
@@ -26,31 +26,28 @@ export const proxy = async (
 
 		const configGen = configuration(configurationUrl, options);
 
-		let hasInitialConfig = false;
+		let config: Configuration | undefined;
 		try {
 			const { value, done } = await configGen.next();
-			if (!done) {
-				await connectClients(value as Configuration);
-				hasInitialConfig = true;
-				log.info("Proxy started");
-			} else {
-				log.warn("Failed to get configuration, will keep polling");
-			}
+			if (!done) config = value as Configuration;
 		} catch (error) {
 			if (error instanceof AuthenticationError) throw error;
 			log.warn(
-				"Error fetching initial configuration, will keep polling",
+				"Error fetching configuration (waiting for configuration)",
 				error,
 			);
+		}
+
+		if (config) {
+			await connectClients(config);
+			log.info("Proxy started");
+		} else {
+			log.info("Proxy started (waiting for configuration)");
 		}
 
 		await server.connect(transport);
 
 		const configPolling = startConfigurationPolling(configGen, abortController);
-
-		if (!hasInitialConfig) {
-			log.info("Proxy started (waiting for configuration)");
-		}
 
 		return {
 			[Symbol.dispose]: async () => {

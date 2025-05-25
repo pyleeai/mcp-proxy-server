@@ -107,10 +107,6 @@ describe("proxy", () => {
 	describe("error handling", () => {
 		test("continues without initial configuration when generator returns done immediately", async () => {
 			// Arrange
-			let mockLoggerWarn: ReturnType<typeof spyOn>;
-			mockLoggerWarn = spyOn(loggerModule.logger, "warn").mockImplementation(
-				() => "",
-			);
 			// biome-ignore lint/correctness/useYield: intentional test case for generator that returns immediately
 			mockConfiguration.mockImplementation(async function* () {
 				return;
@@ -126,15 +122,10 @@ describe("proxy", () => {
 			expect(mockServerConnect).toHaveBeenCalledTimes(1);
 			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
 			expect(mockLoggerInfo).toHaveBeenCalledWith("Proxy starting");
-			expect(mockLoggerWarn).toHaveBeenCalledWith(
-				"Failed to get configuration, will keep polling",
-			);
 			expect(mockLoggerInfo).toHaveBeenCalledWith(
 				"Proxy started (waiting for configuration)",
 			);
 			expect(typeof result[Symbol.dispose]).toBe("function");
-
-			mockLoggerWarn.mockRestore();
 		});
 
 		test("continues without initial configuration when generator throws error", async () => {
@@ -159,7 +150,7 @@ describe("proxy", () => {
 			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
 			expect(mockLoggerInfo).toHaveBeenCalledWith("Proxy starting");
 			expect(mockLoggerWarn).toHaveBeenCalledWith(
-				"Error fetching initial configuration, will keep polling",
+				"Error fetching configuration (waiting for configuration)",
 				expect.any(Error),
 			);
 			expect(mockLoggerInfo).toHaveBeenCalledWith(
@@ -190,38 +181,16 @@ describe("proxy", () => {
 			}
 		});
 
-		test("handles connectClients error gracefully and continues", async () => {
+		test("handles connectClients error by throwing", async () => {
 			// Arrange
-			let mockLoggerWarn: ReturnType<typeof spyOn>;
-			mockLoggerWarn = spyOn(loggerModule.logger, "warn").mockImplementation(
-				() => "",
-			);
 			mockConnectClients.mockRejectedValue(new Error("Connect error"));
 			// Ensure configuration generator yields a config so connectClients is called
 			mockConfiguration.mockImplementation(async function* () {
 				yield defaultConfig;
 			});
 
-			// Act
-			const result = await proxy();
-
-			// Assert
-			expect(mockConfiguration).toHaveBeenCalledTimes(1);
-			expect(mockSetRequestHandlers).toHaveBeenCalledWith(server);
-			expect(mockConnectClients).toHaveBeenCalledWith(defaultConfig);
-			expect(mockServerConnect).toHaveBeenCalledTimes(1);
-			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
-			expect(mockLoggerInfo).toHaveBeenCalledWith("Proxy starting");
-			expect(mockLoggerWarn).toHaveBeenCalledWith(
-				"Error fetching initial configuration, will keep polling",
-				expect.any(Error),
-			);
-			expect(mockLoggerInfo).toHaveBeenCalledWith(
-				"Proxy started (waiting for configuration)",
-			);
-			expect(typeof result[Symbol.dispose]).toBe("function");
-
-			mockLoggerWarn.mockRestore();
+			// Act & Assert
+			return expect(proxy()).rejects.toThrow(/Failed to start Proxy/);
 		});
 
 		test("handles server connect error", async () => {
