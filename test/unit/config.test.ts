@@ -9,7 +9,7 @@ import {
 } from "bun:test";
 import {
 	areConfigurationsEqual,
-	configuration,
+	configurations,
 	initializeConfiguration,
 	startConfigurationPolling,
 } from "../../src/config";
@@ -80,7 +80,7 @@ describe("configuration", () => {
 		}));
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result = await gen.next();
 
 		// Assert
@@ -102,7 +102,7 @@ describe("configuration", () => {
 		fetchSpy.mockClear();
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result = await gen.next();
 
 		// Assert
@@ -128,7 +128,7 @@ describe("configuration", () => {
 		fetchSpy.mockImplementation(() => Promise.reject(abortError));
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result = await gen.next();
 
 		// Assert
@@ -151,7 +151,7 @@ describe("configuration", () => {
 		fetchSpy.mockImplementation(() => Promise.reject(networkError));
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result = await gen.next();
 
 		// Assert
@@ -169,7 +169,7 @@ describe("configuration", () => {
 		fetchSpy.mockImplementation(() => Promise.reject(networkError));
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result = await gen.next();
 
 		// Assert
@@ -195,7 +195,7 @@ describe("configuration", () => {
 		);
 
 		// Act & Assert
-		const gen = configuration();
+		const gen = configurations();
 		await expect(gen.next()).rejects.toThrow(AuthenticationError);
 	});
 
@@ -216,7 +216,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result = await gen.next();
 
 		// Assert
@@ -246,7 +246,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result = await gen.next();
 
 		// Assert
@@ -276,7 +276,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result = await gen.next();
 
 		// Assert
@@ -306,7 +306,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result1 = await gen.next();
 		const result2 = await gen.next();
 
@@ -333,7 +333,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result1 = await gen.next();
 		const result2 = await gen.next();
 
@@ -359,7 +359,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result = await gen.next();
 
 		// Assert
@@ -385,7 +385,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration(customUrl);
+		const gen = configurations(customUrl);
 		await gen.next();
 
 		// Assert
@@ -415,7 +415,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration(mockConfigUrl, { headers: customHeaders });
+		const gen = configurations(mockConfigUrl, { headers: customHeaders });
 		await gen.next();
 
 		// Assert
@@ -446,7 +446,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration(mockConfigUrl, { headers: customHeaders });
+		const gen = configurations(mockConfigUrl, { headers: customHeaders });
 		await gen.next();
 
 		// Assert
@@ -478,7 +478,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result1 = await gen.next();
 		const result2 = await gen.next();
 
@@ -525,7 +525,7 @@ describe("configuration", () => {
 			);
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result1 = await gen.next();
 
 		// Wait for polling interval plus some buffer
@@ -562,7 +562,7 @@ describe("configuration", () => {
 			);
 
 		// Act
-		const gen = configuration();
+		const gen = configurations();
 		const result1 = await gen.next();
 
 		// Wait for polling interval
@@ -817,9 +817,10 @@ describe("initializeConfiguration", () => {
 		fetchSpy = spyOn(global, "fetch");
 		loggerErrorSpy = spyOn(logger, "error").mockImplementation(() => "");
 		loggerInfoSpy = spyOn(logger, "info").mockImplementation(() => "");
-		mockConnectClients = spyOn(clientsModule, "connectClients").mockImplementation(
-			async () => {},
-		);
+		mockConnectClients = spyOn(
+			clientsModule,
+			"connectClients",
+		).mockImplementation(async () => {});
 	});
 
 	afterEach(() => {

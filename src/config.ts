@@ -94,7 +94,7 @@ export const areConfigurationsEqual = (
 	return JSON.stringify(config1) === JSON.stringify(config2);
 };
 
-export async function* configuration(
+export async function* configurations(
 	configurationUrl?: string,
 	options?: { headers?: Record<string, string> },
 ): AsyncGenerator<Configuration, void, unknown> {
@@ -155,11 +155,10 @@ export const initializeConfiguration = async (
 	options?: { headers?: Record<string, string> },
 	abortController?: AbortController,
 ): Promise<Configuration | undefined> => {
-	const configGen = configuration(configurationUrl, options);
+	const configGen = configurations(configurationUrl, options);
 	const gen = await configGen.next();
 	const initialConfig = gen.value;
 	
-	// Start polling in background if abortController is provided
 	if (abortController) {
 		startConfigurationPolling(configGen, abortController);
 	}
