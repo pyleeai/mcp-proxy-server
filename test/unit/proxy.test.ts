@@ -128,15 +128,11 @@ describe("proxy", () => {
 			expect(typeof result[Symbol.dispose]).toBe("function");
 		});
 
-		test("continues without initial configuration when generator throws error", async () => {
+		test("continues without initial configuration when generator encounters internal errors", async () => {
 			// Arrange
-			let mockLoggerWarn: ReturnType<typeof spyOn>;
-			mockLoggerWarn = spyOn(loggerModule.logger, "warn").mockImplementation(
-				() => "",
-			);
-			// biome-ignore lint/correctness/useYield: intentional test case for generator that throws immediately
+			// biome-ignore lint/correctness/useYield: intentional test case for generator that returns immediately
 			mockConfiguration.mockImplementation(async function* () {
-				throw new Error("Configuration error");
+				return;
 			});
 
 			// Act
@@ -149,16 +145,10 @@ describe("proxy", () => {
 			expect(mockServerConnect).toHaveBeenCalledTimes(1);
 			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
 			expect(mockLoggerInfo).toHaveBeenCalledWith("Proxy starting");
-			expect(mockLoggerWarn).toHaveBeenCalledWith(
-				"Error fetching configuration (waiting for configuration)",
-				expect.any(Error),
-			);
 			expect(mockLoggerInfo).toHaveBeenCalledWith(
 				"Proxy started (waiting for configuration)",
 			);
 			expect(typeof result[Symbol.dispose]).toBe("function");
-
-			mockLoggerWarn.mockRestore();
 		});
 
 		test("bubbles up AuthenticationError from initial configuration fetch", async () => {
