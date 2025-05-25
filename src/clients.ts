@@ -1,9 +1,9 @@
 import { createClient } from "./client";
 import { connect } from "./connect";
 import {
-	setClientState,
-	getAllClientStates,
 	clearAllClientStates,
+	getAllClientStates,
+	setClientState,
 } from "./data";
 import { logger } from "./logger";
 import type { Configuration } from "./types";

@@ -6,7 +6,7 @@ import { connectClients } from "../../src/clients";
 import * as connectModule from "../../src/connect";
 import * as dataModule from "../../src/data";
 import { logger } from "../../src/logger";
-import type { Configuration, ClientState } from "../../src/types";
+import type { ClientState, Configuration } from "../../src/types";
 
 let mockCreateClient: ReturnType<typeof spyOn>;
 let mockConnect: ReturnType<typeof spyOn>;

@@ -1,6 +1,6 @@
-import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
 import { connectClients } from "./clients";
-import { ConfigurationError, AuthenticationError } from "./errors";
+import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
+import { AuthenticationError, ConfigurationError } from "./errors";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
 import { delay } from "./utils";

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { proxy, server } from "../../src/proxy";
-import * as configModule from "../../src/config";
 import * as clientsModule from "../../src/clients";
+import * as configModule from "../../src/config";
+import { proxy, server } from "../../src/proxy";
 
 describe("Proxy Resilience Integration Tests", () => {
 	let proxyInstance: Awaited<ReturnType<typeof proxy>> | null = null;

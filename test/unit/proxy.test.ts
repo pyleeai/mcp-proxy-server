@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as cleanupModule from "../../src/cleanup";
 import * as clientsModule from "../../src/clients";
 import * as configModule from "../../src/config";
+import { AuthenticationError } from "../../src/errors";
 import * as handlersModule from "../../src/handlers";
 import * as loggerModule from "../../src/logger";
 import { proxy, server } from "../../src/proxy";
-import { AuthenticationError } from "../../src/errors";
 
 describe("proxy", () => {
 	let mockCleanup: ReturnType<typeof spyOn>;

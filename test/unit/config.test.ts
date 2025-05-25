@@ -7,15 +7,15 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
+import * as clientsModule from "../../src/clients";
 import {
 	areConfigurationsEqual,
 	configurations,
 	initializeConfiguration,
 	startConfigurationPolling,
 } from "../../src/config";
+import { AuthenticationError, ConfigurationError } from "../../src/errors";
 import { logger } from "../../src/logger";
-import { ConfigurationError, AuthenticationError } from "../../src/errors";
-import * as clientsModule from "../../src/clients";
 
 const ENV_MODULE = "../../src/env";
 let mockConfigUrl = "https://example.com/config";
