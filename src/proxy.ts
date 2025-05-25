@@ -18,7 +18,6 @@ export const proxy = async (
 ) => {
 	log.info("MCP Proxy Server starting");
 
-	let configPolling: Promise<void>;
 	const abortController = new AbortController();
 	const transport = new StdioServerTransport();
 
@@ -26,50 +25,40 @@ export const proxy = async (
 		setRequestHandlers(server);
 
 		const configGen = configuration(configurationUrl, options);
-		let hasInitialConfig = false;
 
+		let hasInitialConfig = false;
 		try {
-			const initialResult = await configGen.next();
-			if (!initialResult.done) {
-				const config = initialResult.value as Configuration;
-				await connectClients(config);
+			const { value, done } = await configGen.next();
+			if (!done) {
+				await connectClients(value as Configuration);
 				hasInitialConfig = true;
 				log.info("MCP Proxy Server started with initial configuration");
 			} else {
-				log.warn(
-					"Failed to get initial configuration, will keep polling for viable config",
-				);
+				log.warn("Failed to get initial configuration, will keep polling");
 			}
 		} catch (error) {
-			if (error instanceof AuthenticationError) {
-				throw error;
-			}
-			log.warn(
-				"Error fetching initial configuration, will keep polling for viable config",
-				error,
-			);
+			if (error instanceof AuthenticationError) throw error;
+			log.warn("Error fetching initial configuration, will keep polling", error);
 		}
 
 		await server.connect(transport);
 
-		configPolling = startConfigurationPolling(configGen, abortController);
+		const configPolling = startConfigurationPolling(configGen, abortController);
 
 		if (!hasInitialConfig) {
 			log.info("MCP Proxy Server started (waiting for configuration)");
 		}
+
+		return {
+			[Symbol.dispose]: async () => {
+				abortController.abort();
+				await configPolling.catch(() => {});
+				await cleanup();
+				await server.close();
+			},
+		};
 	} catch (error) {
-		if (error instanceof AuthenticationError) {
-			throw error;
-		}
+		if (error instanceof AuthenticationError) throw error;
 		throw new ProxyError("Failed to start MCP Proxy Server", error);
 	}
-
-	return {
-		[Symbol.dispose]: async () => {
-			abortController?.abort();
-			await configPolling?.catch(() => {});
-			await cleanup();
-			await server.close();
-		},
-	};
 };

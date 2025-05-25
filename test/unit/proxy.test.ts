@@ -129,7 +129,7 @@ describe("proxy", () => {
 			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
 			expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
 			expect(mockLoggerWarn).toHaveBeenCalledWith(
-				"Failed to get initial configuration, will keep polling for viable config",
+				"Failed to get initial configuration, will keep polling",
 			);
 			expect(mockLoggerInfo).toHaveBeenCalledWith(
 				"MCP Proxy Server started (waiting for configuration)",
@@ -161,7 +161,7 @@ describe("proxy", () => {
 			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
 			expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
 			expect(mockLoggerWarn).toHaveBeenCalledWith(
-				"Error fetching initial configuration, will keep polling for viable config",
+				"Error fetching initial configuration, will keep polling",
 				expect.any(Error),
 			);
 			expect(mockLoggerInfo).toHaveBeenCalledWith(
@@ -215,7 +215,7 @@ describe("proxy", () => {
 			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
 			expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
 			expect(mockLoggerWarn).toHaveBeenCalledWith(
-				"Error fetching initial configuration, will keep polling for viable config",
+				"Error fetching initial configuration, will keep polling",
 				expect.any(Error),
 			);
 			expect(mockLoggerInfo).toHaveBeenCalledWith(
