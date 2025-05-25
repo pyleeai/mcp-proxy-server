@@ -27,3 +27,13 @@ export class ProxyError extends Error {
 		this.name = "ProxyError";
 	}
 }
+
+export class AuthenticationError extends Error {
+	constructor(
+		message: string,
+		public cause?: unknown,
+	) {
+		super(message, { cause });
+		this.name = "AuthenticationError";
+	}
+}
