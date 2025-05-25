@@ -8,7 +8,6 @@ import { logger } from "./logger";
 import { createServer } from "./server";
 import type { Configuration } from "./types";
 
-
 using log = logger;
 
 export const server = createServer();
@@ -27,24 +26,39 @@ export const proxy = async (
 		setRequestHandlers(server);
 
 		const configGen = configuration(configurationUrl, options);
-		const initialResult = await configGen.next();
+		let hasInitialConfig = false;
 
-		if (initialResult.done) {
-			throw new ConfigurationError("Failed to get initial configuration");
+		try {
+			const initialResult = await configGen.next();
+			if (!initialResult.done) {
+				const config = initialResult.value as Configuration;
+				await connectClients(config);
+				hasInitialConfig = true;
+				log.info("MCP Proxy Server started with initial configuration");
+			} else {
+				log.warn(
+					"Failed to get initial configuration, will keep polling for viable config",
+				);
+			}
+		} catch (error) {
+			if (error instanceof AuthenticationError) {
+				throw error;
+			}
+			log.warn(
+				"Error fetching initial configuration, will keep polling for viable config",
+				error,
+			);
 		}
 
-		const config = initialResult.value as Configuration;
-		await connectClients(config);
 		await server.connect(transport);
 
 		configPolling = startConfigurationPolling(configGen, abortController);
 
-		log.info("MCP Proxy Server started");
+		if (!hasInitialConfig) {
+			log.info("MCP Proxy Server started (waiting for configuration)");
+		}
 	} catch (error) {
 		if (error instanceof AuthenticationError) {
-			throw error;
-		}
-		if (error instanceof ConfigurationError) {
 			throw error;
 		}
 		throw new ProxyError("Failed to start MCP Proxy Server", error);
