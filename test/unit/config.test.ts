@@ -8,8 +8,9 @@ import {
 	test,
 } from "bun:test";
 import {
-	configuration,
 	areConfigurationsEqual,
+	configuration,
+	initializeConfiguration,
 	startConfigurationPolling,
 } from "../../src/config";
 import { logger } from "../../src/logger";
@@ -803,5 +804,137 @@ describe("startConfigurationPolling", () => {
 
 		// Verify no error logging occurred for AuthenticationError
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
+	});
+});
+
+describe("initializeConfiguration", () => {
+	let fetchSpy: ReturnType<typeof spyOn>;
+	let loggerErrorSpy: ReturnType<typeof spyOn>;
+	let loggerInfoSpy: ReturnType<typeof spyOn>;
+	let mockConnectClients: ReturnType<typeof spyOn>;
+
+	beforeEach(() => {
+		fetchSpy = spyOn(global, "fetch");
+		loggerErrorSpy = spyOn(logger, "error").mockImplementation(() => "");
+		loggerInfoSpy = spyOn(logger, "info").mockImplementation(() => "");
+		mockConnectClients = spyOn(clientsModule, "connectClients").mockImplementation(
+			async () => {},
+		);
+	});
+
+	afterEach(() => {
+		fetchSpy.mockRestore();
+		loggerErrorSpy.mockRestore();
+		loggerInfoSpy.mockRestore();
+		mockConnectClients.mockRestore();
+	});
+
+	test("returns initial config when available", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		const testConfig = { mcp: { servers: { test: {} } } };
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(JSON.stringify(testConfig), {
+					status: 200,
+				}),
+			),
+		);
+
+		const abortController = new AbortController();
+
+		// Act
+		const result = await initializeConfiguration(
+			undefined,
+			undefined,
+			abortController,
+		);
+
+		// Assert
+		expect(result.initialConfig).toEqual(testConfig);
+		expect(result.configPolling).toBeInstanceOf(Promise);
+	});
+
+	test("returns undefined config when not available", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response("{invalid json syntax", {
+					status: 200,
+				}),
+			),
+		);
+
+		const abortController = new AbortController();
+
+		// Act
+		const result = await initializeConfiguration(
+			undefined,
+			undefined,
+			abortController,
+		);
+
+		// Assert
+		expect(result.initialConfig).toBeUndefined();
+		expect(result.configPolling).toBeInstanceOf(Promise);
+	});
+
+	test("returns resolved promise when no abortController provided", async () => {
+		// Arrange
+		mockConfigUrl = "";
+		mockPollInterval = 0;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		// Act
+		const result = await initializeConfiguration();
+
+		// Assert
+		expect(result.initialConfig).toBeDefined();
+		expect(result.configPolling).toBeInstanceOf(Promise);
+		
+		// Verify the promise resolves immediately
+		await expect(result.configPolling).resolves.toBeUndefined();
+	});
+
+	test("passes through AuthenticationError", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response("Unauthorized", {
+					status: 401,
+					statusText: "Unauthorized",
+				}),
+			),
+		);
+
+		const abortController = new AbortController();
+
+		// Act & Assert
+		await expect(
+			initializeConfiguration(undefined, undefined, abortController),
+		).rejects.toThrow(AuthenticationError);
 	});
 });

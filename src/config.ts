@@ -149,3 +149,20 @@ export const startConfigurationPolling = async (
 		}
 	}
 };
+
+export const initializeConfiguration = async (
+	configurationUrl?: string,
+	options?: { headers?: Record<string, string> },
+	abortController?: AbortController,
+): Promise<Configuration | undefined> => {
+	const configGen = configuration(configurationUrl, options);
+	const gen = await configGen.next();
+	const initialConfig = gen.value;
+	
+	// Start polling in background if abortController is provided
+	if (abortController) {
+		startConfigurationPolling(configGen, abortController);
+	}
+
+	return initialConfig;
+};
