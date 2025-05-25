@@ -1,9 +1,9 @@
 import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
 import { connectClients } from "./clients";
-import { ConfigurationError, AuthenticationError, NetworkError } from "./errors";
+import { ConfigurationError, AuthenticationError } from "./errors";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
-import { delay, fail } from "./utils";
+import { delay } from "./utils";
 
 using log = logger;
 
@@ -61,9 +61,8 @@ const fetchConfiguration = async (
 
 	if (!response.ok) {
 		if (response.status === 401) {
-			return fail(
+			throw new AuthenticationError(
 				`Authentication failed (${response.status} ${response.statusText})`,
-				AuthenticationError,
 			);
 		}
 		log.warn(
@@ -76,11 +75,11 @@ const fetchConfiguration = async (
 	try {
 		configuration = await response.json();
 	} catch (error) {
-		return fail("Failed to parse configuration", ConfigurationError);
+		throw new ConfigurationError("Failed to parse configuration", error);
 	}
 
 	if (!configuration?.mcp?.servers) {
-		return fail("Invalid configuration", ConfigurationError);
+		throw new ConfigurationError("Invalid configuration");
 	}
 
 	log.debug(`Successfully loaded configuration from ${configurationUrl}`);

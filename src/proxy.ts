@@ -7,7 +7,7 @@ import { setRequestHandlers } from "./handlers";
 import { logger } from "./logger";
 import { createServer } from "./server";
 import type { Configuration } from "./types";
-import { fail } from "./utils";
+
 
 using log = logger;
 
@@ -30,7 +30,7 @@ export const proxy = async (
 		const initialResult = await configGen.next();
 
 		if (initialResult.done) {
-			fail("Failed to get initial configuration", ConfigurationError);
+			throw new ConfigurationError("Failed to get initial configuration");
 		}
 
 		const config = initialResult.value as Configuration;
@@ -44,7 +44,10 @@ export const proxy = async (
 		if (error instanceof AuthenticationError) {
 			throw error;
 		}
-		fail("Failed to start MCP Proxy Server", ProxyError, error);
+		if (error instanceof ConfigurationError) {
+			throw error;
+		}
+		throw new ProxyError("Failed to start MCP Proxy Server", error);
 	}
 
 	return {
