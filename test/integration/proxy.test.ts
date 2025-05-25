@@ -32,7 +32,7 @@ describe("Proxy Resilience Integration Tests", () => {
 		if (originalPollingInterval !== undefined) {
 			process.env.CONFIGURATION_POLL_INTERVAL = originalPollingInterval;
 		} else {
-			delete process.env.CONFIGURATION_POLL_INTERVAL;
+			process.env.CONFIGURATION_POLL_INTERVAL = undefined;
 		}
 		if (mockFetch) {
 			mockFetch.mockRestore();
