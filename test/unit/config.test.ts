@@ -7,14 +7,15 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
+import * as clientsModule from "../../src/clients";
 import {
-	configuration,
 	areConfigurationsEqual,
+	generateConfiguration,
+	initializeConfiguration,
 	startConfigurationPolling,
 } from "../../src/config";
+import { AuthenticationError, ConfigurationError } from "../../src/errors";
 import { logger } from "../../src/logger";
-import { ConfigurationError } from "../../src/errors";
-import * as clientsModule from "../../src/clients";
 
 const ENV_MODULE = "../../src/env";
 let mockConfigUrl = "https://example.com/config";
@@ -79,7 +80,7 @@ describe("configuration", () => {
 		}));
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -101,7 +102,7 @@ describe("configuration", () => {
 		fetchSpy.mockClear();
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -127,7 +128,7 @@ describe("configuration", () => {
 		fetchSpy.mockImplementation(() => Promise.reject(abortError));
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -150,7 +151,7 @@ describe("configuration", () => {
 		fetchSpy.mockImplementation(() => Promise.reject(networkError));
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -168,7 +169,7 @@ describe("configuration", () => {
 		fetchSpy.mockImplementation(() => Promise.reject(networkError));
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -177,7 +178,28 @@ describe("configuration", () => {
 		expect(loggerWarnSpy).toHaveBeenCalled();
 	});
 
-	test("yields default configuration on HTTP error", async () => {
+	test("throws AuthenticationError on 401 HTTP error", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(null, {
+					status: 401,
+					statusText: "Unauthorized",
+				}),
+			),
+		);
+
+		// Act & Assert
+		const gen = generateConfiguration();
+		await expect(gen.next()).rejects.toThrow(AuthenticationError);
+	});
+
+	test("yields default configuration on 404 HTTP error", async () => {
 		// Arrange
 		mockConfigUrl = "https://example.com/config";
 		mock.module(ENV_MODULE, () => ({
@@ -194,7 +216,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -205,6 +227,66 @@ describe("configuration", () => {
 		expect(warnCall[0]).toContain("Error fetching configuration");
 		expect(warnCall[0]).toContain("404");
 		expect(warnCall[0]).toContain("Not Found");
+	});
+
+	test("yields default configuration on 500 HTTP error", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(null, {
+					status: 500,
+					statusText: "Internal Server Error",
+				}),
+			),
+		);
+
+		// Act
+		const gen = generateConfiguration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Error fetching configuration");
+		expect(warnCall[0]).toContain("500");
+		expect(warnCall[0]).toContain("Internal Server Error");
+	});
+
+	test("yields default configuration on 403 HTTP error", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(null, {
+					status: 403,
+					statusText: "Forbidden",
+				}),
+			),
+		);
+
+		// Act
+		const gen = generateConfiguration();
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerWarnSpy).toHaveBeenCalled();
+		const warnCall = loggerWarnSpy.mock.calls[0];
+		expect(warnCall[0]).toContain("Error fetching configuration");
+		expect(warnCall[0]).toContain("403");
+		expect(warnCall[0]).toContain("Forbidden");
 	});
 
 	test("handles JSON parsing failure", async () => {
@@ -224,7 +306,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 		const result2 = await gen.next();
 
@@ -251,7 +333,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 		const result2 = await gen.next();
 
@@ -277,7 +359,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -303,7 +385,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration(customUrl);
+		const gen = generateConfiguration(customUrl);
 		await gen.next();
 
 		// Assert
@@ -333,7 +415,9 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration(mockConfigUrl, { headers: customHeaders });
+		const gen = generateConfiguration(mockConfigUrl, {
+			headers: customHeaders,
+		});
 		await gen.next();
 
 		// Assert
@@ -364,7 +448,9 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration(mockConfigUrl, { headers: customHeaders });
+		const gen = generateConfiguration(mockConfigUrl, {
+			headers: customHeaders,
+		});
 		await gen.next();
 
 		// Assert
@@ -396,7 +482,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 		const result2 = await gen.next();
 
@@ -443,7 +529,7 @@ describe("configuration", () => {
 			);
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 
 		// Wait for polling interval plus some buffer
@@ -480,7 +566,7 @@ describe("configuration", () => {
 			);
 
 		// Act
-		const gen = configuration();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 
 		// Wait for polling interval
@@ -701,5 +787,153 @@ describe("startConfigurationPolling", () => {
 		// Assert
 		expect(yieldCount).toBe(3);
 		expect(mockConnectClients).toHaveBeenCalledTimes(2);
+	});
+
+	test("re-throws AuthenticationError during polling", async () => {
+		// Arrange
+		const abortController = new AbortController();
+		const authError = new AuthenticationError(
+			"Authentication failed during polling",
+		);
+
+		async function* mockConfigGen() {
+			yield defaultConfig;
+			throw authError;
+		}
+
+		// Act & Assert
+		await expect(
+			startConfigurationPolling(mockConfigGen(), abortController),
+		).rejects.toThrow(AuthenticationError);
+
+		// Verify no error logging occurred for AuthenticationError
+		expect(loggerErrorSpy).not.toHaveBeenCalled();
+	});
+});
+
+describe("initializeConfiguration", () => {
+	let fetchSpy: ReturnType<typeof spyOn>;
+	let loggerErrorSpy: ReturnType<typeof spyOn>;
+	let loggerInfoSpy: ReturnType<typeof spyOn>;
+	let mockConnectClients: ReturnType<typeof spyOn>;
+
+	beforeEach(() => {
+		fetchSpy = spyOn(global, "fetch");
+		loggerErrorSpy = spyOn(logger, "error").mockImplementation(() => "");
+		loggerInfoSpy = spyOn(logger, "info").mockImplementation(() => "");
+		mockConnectClients = spyOn(
+			clientsModule,
+			"connectClients",
+		).mockImplementation(async () => {});
+	});
+
+	afterEach(() => {
+		fetchSpy.mockRestore();
+		loggerErrorSpy.mockRestore();
+		loggerInfoSpy.mockRestore();
+		mockConnectClients.mockRestore();
+	});
+
+	test("returns initial config when available", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		const testConfig = { mcp: { servers: { test: {} } } };
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response(JSON.stringify(testConfig), {
+					status: 200,
+				}),
+			),
+		);
+
+		const abortController = new AbortController();
+
+		// Act
+		const result = await initializeConfiguration(
+			undefined,
+			undefined,
+			abortController,
+		);
+
+		// Assert
+		expect(result).toEqual(testConfig);
+	});
+
+	test("returns undefined config when not available", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response("{invalid json syntax", {
+					status: 200,
+				}),
+			),
+		);
+
+		const abortController = new AbortController();
+
+		// Act
+		const result = await initializeConfiguration(
+			undefined,
+			undefined,
+			abortController,
+		);
+
+		// Assert
+		expect(result).toBeUndefined();
+	});
+
+	test("returns config when no abortController provided", async () => {
+		// Arrange
+		mockConfigUrl = "";
+		mockPollInterval = 0;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		// Act
+		const result = await initializeConfiguration();
+
+		// Assert
+		expect(result).toBeDefined();
+	});
+
+	test("passes through AuthenticationError", async () => {
+		// Arrange
+		mockConfigUrl = "https://example.com/config";
+		mockPollInterval = 0;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		fetchSpy.mockImplementation(() =>
+			Promise.resolve(
+				new Response("Unauthorized", {
+					status: 401,
+					statusText: "Unauthorized",
+				}),
+			),
+		);
+
+		const abortController = new AbortController();
+
+		// Act & Assert
+		await expect(
+			initializeConfiguration(undefined, undefined, abortController),
+		).rejects.toThrow(AuthenticationError);
 	});
 });

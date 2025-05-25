@@ -1,9 +1,9 @@
-import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
 import { connectClients } from "./clients";
-import { ConfigurationError } from "./errors";
+import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
+import { AuthenticationError, ConfigurationError } from "./errors";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
-import { delay, fail } from "./utils";
+import { delay } from "./utils";
 
 using log = logger;
 
@@ -60,6 +60,11 @@ const fetchConfiguration = async (
 	}
 
 	if (!response.ok) {
+		if (response.status === 401) {
+			throw new AuthenticationError(
+				`Authentication failed (${response.status} ${response.statusText})`,
+			);
+		}
 		log.warn(
 			`Error fetching configuration (${response.status} ${response.statusText}), using default empty configuration`,
 		);
@@ -70,11 +75,11 @@ const fetchConfiguration = async (
 	try {
 		configuration = await response.json();
 	} catch (error) {
-		return fail("Failed to parse configuration", ConfigurationError);
+		throw new ConfigurationError("Failed to parse configuration", error);
 	}
 
 	if (!configuration?.mcp?.servers) {
-		return fail("Invalid configuration", ConfigurationError);
+		throw new ConfigurationError("Invalid configuration");
 	}
 
 	log.debug(`Successfully loaded configuration from ${configurationUrl}`);
@@ -89,7 +94,7 @@ export const areConfigurationsEqual = (
 	return JSON.stringify(config1) === JSON.stringify(config2);
 };
 
-export async function* configuration(
+export async function* generateConfiguration(
 	configurationUrl?: string,
 	options?: { headers?: Record<string, string> },
 ): AsyncGenerator<Configuration, void, unknown> {
@@ -110,7 +115,10 @@ export async function* configuration(
 				currentConfiguration = newConfiguration;
 				yield newConfiguration;
 			}
-		} catch {
+		} catch (error) {
+			if (error instanceof AuthenticationError) {
+				throw error;
+			}
 			log.error("Error fetching configuration");
 		}
 
@@ -133,8 +141,25 @@ export const startConfigurationPolling = async (
 			await connectClients(config);
 		}
 	} catch (error) {
+		if (error instanceof AuthenticationError) {
+			throw error;
+		}
 		if (!abortController.signal.aborted) {
 			log.error("Error in configuration polling", error);
 		}
 	}
+};
+
+export const initializeConfiguration = async (
+	configurationUrl?: string,
+	options?: { headers?: Record<string, string> },
+	abortController?: AbortController,
+): Promise<Configuration | undefined> => {
+	const generator = generateConfiguration(configurationUrl, options);
+	const { value: configuration } = await generator.next();
+
+	if (abortController)
+		void startConfigurationPolling(generator, abortController);
+
+	return configuration as Configuration | undefined;
 };
