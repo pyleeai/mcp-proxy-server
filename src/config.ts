@@ -94,7 +94,7 @@ export const areConfigurationsEqual = (
 	return JSON.stringify(config1) === JSON.stringify(config2);
 };
 
-export async function* configurations(
+export async function* generateConfiguration(
 	configurationUrl?: string,
 	options?: { headers?: Record<string, string> },
 ): AsyncGenerator<Configuration, void, unknown> {
@@ -155,6 +155,7 @@ export const initializeConfiguration = async (
 	options?: { headers?: Record<string, string> },
 	abortController?: AbortController,
 ): Promise<Configuration | undefined> => {
+	const generator = generateConfiguration(configurationUrl, options);
 	const generator = configurations(configurationUrl, options);
 	const next = await generator.next();
 	const configuration = next.value;

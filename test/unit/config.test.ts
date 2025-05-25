@@ -10,7 +10,7 @@ import {
 import * as clientsModule from "../../src/clients";
 import {
 	areConfigurationsEqual,
-	configurations,
+	generateConfiguration,
 	initializeConfiguration,
 	startConfigurationPolling,
 } from "../../src/config";
@@ -80,7 +80,7 @@ describe("configuration", () => {
 		}));
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -102,7 +102,7 @@ describe("configuration", () => {
 		fetchSpy.mockClear();
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -128,7 +128,7 @@ describe("configuration", () => {
 		fetchSpy.mockImplementation(() => Promise.reject(abortError));
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -151,7 +151,7 @@ describe("configuration", () => {
 		fetchSpy.mockImplementation(() => Promise.reject(networkError));
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -169,7 +169,7 @@ describe("configuration", () => {
 		fetchSpy.mockImplementation(() => Promise.reject(networkError));
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -195,7 +195,7 @@ describe("configuration", () => {
 		);
 
 		// Act & Assert
-		const gen = configurations();
+		const gen = generateConfiguration();
 		await expect(gen.next()).rejects.toThrow(AuthenticationError);
 	});
 
@@ -216,7 +216,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -246,7 +246,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -276,7 +276,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -306,7 +306,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 		const result2 = await gen.next();
 
@@ -333,7 +333,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 		const result2 = await gen.next();
 
@@ -359,7 +359,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result = await gen.next();
 
 		// Assert
@@ -385,7 +385,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations(customUrl);
+		const gen = generateConfiguration(customUrl);
 		await gen.next();
 
 		// Assert
@@ -415,7 +415,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations(mockConfigUrl, { headers: customHeaders });
+		const gen = generateConfiguration(mockConfigUrl, { headers: customHeaders });
 		await gen.next();
 
 		// Assert
@@ -446,7 +446,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations(mockConfigUrl, { headers: customHeaders });
+		const gen = generateConfiguration(mockConfigUrl, { headers: customHeaders });
 		await gen.next();
 
 		// Assert
@@ -478,7 +478,7 @@ describe("configuration", () => {
 		);
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 		const result2 = await gen.next();
 
@@ -525,7 +525,7 @@ describe("configuration", () => {
 			);
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 
 		// Wait for polling interval plus some buffer
@@ -562,7 +562,7 @@ describe("configuration", () => {
 			);
 
 		// Act
-		const gen = configurations();
+		const gen = generateConfiguration();
 		const result1 = await gen.next();
 
 		// Wait for polling interval
