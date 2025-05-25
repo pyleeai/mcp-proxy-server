@@ -783,4 +783,25 @@ describe("startConfigurationPolling", () => {
 		expect(yieldCount).toBe(3);
 		expect(mockConnectClients).toHaveBeenCalledTimes(2);
 	});
+
+	test("re-throws AuthenticationError during polling", async () => {
+		// Arrange
+		const abortController = new AbortController();
+		const authError = new AuthenticationError(
+			"Authentication failed during polling",
+		);
+
+		async function* mockConfigGen() {
+			yield defaultConfig;
+			throw authError;
+		}
+
+		// Act & Assert
+		await expect(
+			startConfigurationPolling(mockConfigGen(), abortController),
+		).rejects.toThrow(AuthenticationError);
+
+		// Verify no error logging occurred for AuthenticationError
+		expect(loggerErrorSpy).not.toHaveBeenCalled();
+	});
 });
