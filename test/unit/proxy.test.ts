@@ -72,10 +72,8 @@ describe("proxy", () => {
 		expect(mockConnectClients).toHaveBeenCalledWith(defaultConfig);
 		expect(mockServerConnect).toHaveBeenCalledTimes(1);
 		expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
-		expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
-		expect(mockLoggerInfo).toHaveBeenCalledWith(
-			"MCP Proxy Server started with initial configuration",
-		);
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Proxy starting");
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Proxy started");
 		expect(typeof result[Symbol.dispose]).toBe("function");
 	});
 
@@ -127,12 +125,12 @@ describe("proxy", () => {
 			expect(mockConnectClients).not.toHaveBeenCalled();
 			expect(mockServerConnect).toHaveBeenCalledTimes(1);
 			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
-			expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
+			expect(mockLoggerInfo).toHaveBeenCalledWith("Proxy starting");
 			expect(mockLoggerWarn).toHaveBeenCalledWith(
-				"Failed to get initial configuration, will keep polling",
+				"Failed to get configuration, will keep polling",
 			);
 			expect(mockLoggerInfo).toHaveBeenCalledWith(
-				"MCP Proxy Server started (waiting for configuration)",
+				"Proxy started (waiting for configuration)",
 			);
 			expect(typeof result[Symbol.dispose]).toBe("function");
 
@@ -159,13 +157,13 @@ describe("proxy", () => {
 			expect(mockConnectClients).not.toHaveBeenCalled();
 			expect(mockServerConnect).toHaveBeenCalledTimes(1);
 			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
-			expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
+			expect(mockLoggerInfo).toHaveBeenCalledWith("Proxy starting");
 			expect(mockLoggerWarn).toHaveBeenCalledWith(
 				"Error fetching initial configuration, will keep polling",
 				expect.any(Error),
 			);
 			expect(mockLoggerInfo).toHaveBeenCalledWith(
-				"MCP Proxy Server started (waiting for configuration)",
+				"Proxy started (waiting for configuration)",
 			);
 			expect(typeof result[Symbol.dispose]).toBe("function");
 
@@ -213,13 +211,13 @@ describe("proxy", () => {
 			expect(mockConnectClients).toHaveBeenCalledWith(defaultConfig);
 			expect(mockServerConnect).toHaveBeenCalledTimes(1);
 			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
-			expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
+			expect(mockLoggerInfo).toHaveBeenCalledWith("Proxy starting");
 			expect(mockLoggerWarn).toHaveBeenCalledWith(
 				"Error fetching initial configuration, will keep polling",
 				expect.any(Error),
 			);
 			expect(mockLoggerInfo).toHaveBeenCalledWith(
-				"MCP Proxy Server started (waiting for configuration)",
+				"Proxy started (waiting for configuration)",
 			);
 			expect(typeof result[Symbol.dispose]).toBe("function");
 
@@ -231,9 +229,7 @@ describe("proxy", () => {
 			mockServerConnect.mockRejectedValue(new Error("Server connect error"));
 
 			// Act & Assert
-			return expect(proxy()).rejects.toThrow(
-				/Failed to start MCP Proxy Server/,
-			);
+			return expect(proxy()).rejects.toThrow(/Failed to start Proxy/);
 		});
 
 		test("wraps non-AuthenticationError from server setup as ProxyError", async () => {
@@ -248,7 +244,7 @@ describe("proxy", () => {
 			} catch (error) {
 				expect(error).toBeInstanceOf(ProxyError);
 				expect(error.name).toBe("ProxyError");
-				expect(error.message).toContain("Failed to start MCP Proxy Server");
+				expect(error.message).toContain("Failed to start Proxy");
 				expect(error.cause).toBe(originalError);
 			}
 		});

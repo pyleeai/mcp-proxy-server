@@ -16,7 +16,7 @@ export const proxy = async (
 	configurationUrl?: string,
 	options?: { headers?: Record<string, string> },
 ) => {
-	log.info("MCP Proxy Server starting");
+	log.info("Proxy starting");
 
 	const abortController = new AbortController();
 	const transport = new StdioServerTransport();
@@ -32,13 +32,16 @@ export const proxy = async (
 			if (!done) {
 				await connectClients(value as Configuration);
 				hasInitialConfig = true;
-				log.info("MCP Proxy Server started with initial configuration");
+				log.info("Proxy started");
 			} else {
-				log.warn("Failed to get initial configuration, will keep polling");
+				log.warn("Failed to get configuration, will keep polling");
 			}
 		} catch (error) {
 			if (error instanceof AuthenticationError) throw error;
-			log.warn("Error fetching initial configuration, will keep polling", error);
+			log.warn(
+				"Error fetching initial configuration, will keep polling",
+				error,
+			);
 		}
 
 		await server.connect(transport);
@@ -46,7 +49,7 @@ export const proxy = async (
 		const configPolling = startConfigurationPolling(configGen, abortController);
 
 		if (!hasInitialConfig) {
-			log.info("MCP Proxy Server started (waiting for configuration)");
+			log.info("Proxy started (waiting for configuration)");
 		}
 
 		return {
@@ -59,6 +62,6 @@ export const proxy = async (
 		};
 	} catch (error) {
 		if (error instanceof AuthenticationError) throw error;
-		throw new ProxyError("Failed to start MCP Proxy Server", error);
+		throw new ProxyError("Failed to start Proxy", error);
 	}
 };
