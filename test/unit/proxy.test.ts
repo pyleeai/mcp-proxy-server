@@ -5,7 +5,7 @@ import * as configModule from "../../src/config";
 import * as handlersModule from "../../src/handlers";
 import * as loggerModule from "../../src/logger";
 import { proxy, server } from "../../src/proxy";
-import { AuthenticationError, ProxyError } from "../../src/errors";
+import { AuthenticationError } from "../../src/errors";
 
 describe("proxy", () => {
 	let mockCleanup: ReturnType<typeof spyOn>;
@@ -180,7 +180,7 @@ describe("proxy", () => {
 			});
 
 			// Act & Assert
-			return expect(proxy()).rejects.toThrow(/Failed to start Proxy/);
+			return expect(proxy()).rejects.toThrow("Connect error");
 		});
 
 		test("handles server connect error", async () => {
@@ -188,10 +188,10 @@ describe("proxy", () => {
 			mockServerConnect.mockRejectedValue(new Error("Server connect error"));
 
 			// Act & Assert
-			return expect(proxy()).rejects.toThrow(/Failed to start Proxy/);
+			return expect(proxy()).rejects.toThrow("Server connect error");
 		});
 
-		test("wraps non-AuthenticationError from server setup as ProxyError", async () => {
+		test("bubbles up original errors from server setup", async () => {
 			// Arrange
 			const originalError = new Error("Server setup error");
 			mockServerConnect.mockRejectedValue(originalError);
@@ -201,10 +201,9 @@ describe("proxy", () => {
 				await proxy();
 				expect.unreachable("Expected proxy to throw");
 			} catch (error) {
-				expect(error).toBeInstanceOf(ProxyError);
-				expect(error.name).toBe("ProxyError");
-				expect(error.message).toContain("Failed to start Proxy");
-				expect(error.cause).toBe(originalError);
+				expect(error).toBeInstanceOf(Error);
+				expect(error.message).toBe("Server setup error");
+				expect(error).toBe(originalError);
 			}
 		});
 
