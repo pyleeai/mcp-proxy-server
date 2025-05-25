@@ -1,6 +1,6 @@
 import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
 import { connectClients } from "./clients";
-import { ConfigurationError } from "./errors";
+import { ConfigurationError, AuthenticationError, NetworkError } from "./errors";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
 import { delay, fail } from "./utils";
@@ -60,6 +60,12 @@ const fetchConfiguration = async (
 	}
 
 	if (!response.ok) {
+		if (response.status === 401) {
+			return fail(
+				`Authentication failed (${response.status} ${response.statusText})`,
+				AuthenticationError,
+			);
+		}
 		log.warn(
 			`Error fetching configuration (${response.status} ${response.statusText}), using default empty configuration`,
 		);
@@ -110,7 +116,10 @@ export async function* configuration(
 				currentConfiguration = newConfiguration;
 				yield newConfiguration;
 			}
-		} catch {
+		} catch (error) {
+			if (error instanceof AuthenticationError) {
+				throw error;
+			}
 			log.error("Error fetching configuration");
 		}
 
@@ -133,6 +142,9 @@ export const startConfigurationPolling = async (
 			await connectClients(config);
 		}
 	} catch (error) {
+		if (error instanceof AuthenticationError) {
+			throw error;
+		}
 		if (!abortController.signal.aborted) {
 			log.error("Error in configuration polling", error);
 		}
