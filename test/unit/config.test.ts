@@ -857,8 +857,7 @@ describe("initializeConfiguration", () => {
 		);
 
 		// Assert
-		expect(result.initialConfig).toEqual(testConfig);
-		expect(result.configPolling).toBeInstanceOf(Promise);
+		expect(result).toEqual(testConfig);
 	});
 
 	test("returns undefined config when not available", async () => {
@@ -888,11 +887,10 @@ describe("initializeConfiguration", () => {
 		);
 
 		// Assert
-		expect(result.initialConfig).toBeUndefined();
-		expect(result.configPolling).toBeInstanceOf(Promise);
+		expect(result).toBeUndefined();
 	});
 
-	test("returns resolved promise when no abortController provided", async () => {
+	test("returns config when no abortController provided", async () => {
 		// Arrange
 		mockConfigUrl = "";
 		mockPollInterval = 0;
@@ -905,11 +903,7 @@ describe("initializeConfiguration", () => {
 		const result = await initializeConfiguration();
 
 		// Assert
-		expect(result.initialConfig).toBeDefined();
-		expect(result.configPolling).toBeInstanceOf(Promise);
-		
-		// Verify the promise resolves immediately
-		await expect(result.configPolling).resolves.toBeUndefined();
+		expect(result).toBeDefined();
 	});
 
 	test("passes through AuthenticationError", async () => {
