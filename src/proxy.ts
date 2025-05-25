@@ -2,7 +2,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { cleanup } from "./cleanup";
 import { connectClients } from "./clients";
 import { configuration, startConfigurationPolling } from "./config";
-import { ProxyError } from "./errors";
+import { ProxyError, AuthenticationError, ConfigurationError } from "./errors";
 import { setRequestHandlers } from "./handlers";
 import { logger } from "./logger";
 import { createServer } from "./server";
@@ -30,7 +30,7 @@ export const proxy = async (
 		const initialResult = await configGen.next();
 
 		if (initialResult.done) {
-			fail("Failed to get initial configuration", ProxyError);
+			fail("Failed to get initial configuration", ConfigurationError);
 		}
 
 		const config = initialResult.value as Configuration;
@@ -41,6 +41,9 @@ export const proxy = async (
 
 		log.info("MCP Proxy Server started");
 	} catch (error) {
+		if (error instanceof AuthenticationError) {
+			throw error;
+		}
 		fail("Failed to start MCP Proxy Server", ProxyError, error);
 	}
 
