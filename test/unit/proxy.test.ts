@@ -5,6 +5,7 @@ import * as configModule from "../../src/config";
 import * as handlersModule from "../../src/handlers";
 import * as loggerModule from "../../src/logger";
 import { proxy, server } from "../../src/proxy";
+import { AuthenticationError, ProxyError } from "../../src/errors";
 
 describe("proxy", () => {
 	let mockCleanup: ReturnType<typeof spyOn>;
@@ -72,7 +73,9 @@ describe("proxy", () => {
 		expect(mockServerConnect).toHaveBeenCalledTimes(1);
 		expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
 		expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
-		expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server started");
+		expect(mockLoggerInfo).toHaveBeenCalledWith(
+			"MCP Proxy Server started with initial configuration",
+		);
 		expect(typeof result[Symbol.dispose]).toBe("function");
 	});
 
@@ -104,39 +107,123 @@ describe("proxy", () => {
 	});
 
 	describe("error handling", () => {
-		test("handles configuration generator returning done immediately", async () => {
+		test("continues without initial configuration when generator returns done immediately", async () => {
 			// Arrange
+			let mockLoggerWarn: ReturnType<typeof spyOn>;
+			mockLoggerWarn = spyOn(loggerModule.logger, "warn").mockImplementation(
+				() => "",
+			);
 			// biome-ignore lint/correctness/useYield: intentional test case for generator that returns immediately
 			mockConfiguration.mockImplementation(async function* () {
 				return;
 			});
 
-			return expect(proxy()).rejects.toThrow(
-				/Failed to get initial configuration/,
+			// Act
+			const result = await proxy();
+
+			// Assert
+			expect(mockConfiguration).toHaveBeenCalledTimes(1);
+			expect(mockSetRequestHandlers).toHaveBeenCalledWith(server);
+			expect(mockConnectClients).not.toHaveBeenCalled();
+			expect(mockServerConnect).toHaveBeenCalledTimes(1);
+			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
+			expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
+			expect(mockLoggerWarn).toHaveBeenCalledWith(
+				"Failed to get initial configuration, will keep polling for viable config",
 			);
+			expect(mockLoggerInfo).toHaveBeenCalledWith(
+				"MCP Proxy Server started (waiting for configuration)",
+			);
+			expect(typeof result[Symbol.dispose]).toBe("function");
+
+			mockLoggerWarn.mockRestore();
 		});
 
-		test("handles configuration generator error", async () => {
+		test("continues without initial configuration when generator throws error", async () => {
 			// Arrange
+			let mockLoggerWarn: ReturnType<typeof spyOn>;
+			mockLoggerWarn = spyOn(loggerModule.logger, "warn").mockImplementation(
+				() => "",
+			);
 			// biome-ignore lint/correctness/useYield: intentional test case for generator that throws immediately
 			mockConfiguration.mockImplementation(async function* () {
 				throw new Error("Configuration error");
 			});
 
-			// Act & Assert
-			return expect(proxy()).rejects.toThrow(
-				/Failed to start MCP Proxy Server/,
+			// Act
+			const result = await proxy();
+
+			// Assert
+			expect(mockConfiguration).toHaveBeenCalledTimes(1);
+			expect(mockSetRequestHandlers).toHaveBeenCalledWith(server);
+			expect(mockConnectClients).not.toHaveBeenCalled();
+			expect(mockServerConnect).toHaveBeenCalledTimes(1);
+			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
+			expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
+			expect(mockLoggerWarn).toHaveBeenCalledWith(
+				"Error fetching initial configuration, will keep polling for viable config",
+				expect.any(Error),
 			);
+			expect(mockLoggerInfo).toHaveBeenCalledWith(
+				"MCP Proxy Server started (waiting for configuration)",
+			);
+			expect(typeof result[Symbol.dispose]).toBe("function");
+
+			mockLoggerWarn.mockRestore();
 		});
 
-		test("handles connectClients error", async () => {
+		test("bubbles up AuthenticationError from initial configuration fetch", async () => {
 			// Arrange
-			mockConnectClients.mockRejectedValue(new Error("Connect error"));
+			const originalError = new AuthenticationError("Unauthorized access");
+			// biome-ignore lint/correctness/useYield: intentional test case for generator that throws AuthenticationError
+			mockConfiguration.mockImplementation(async function* () {
+				throw originalError;
+			});
 
 			// Act & Assert
-			return expect(proxy()).rejects.toThrow(
-				/Failed to start MCP Proxy Server/,
+			try {
+				await proxy();
+				expect.unreachable("Expected proxy to throw");
+			} catch (error) {
+				expect(error).toBeInstanceOf(AuthenticationError);
+				expect(error.name).toBe("AuthenticationError");
+				expect(error.message).toBe("Unauthorized access");
+				expect(error).toBe(originalError);
+			}
+		});
+
+		test("handles connectClients error gracefully and continues", async () => {
+			// Arrange
+			let mockLoggerWarn: ReturnType<typeof spyOn>;
+			mockLoggerWarn = spyOn(loggerModule.logger, "warn").mockImplementation(
+				() => "",
 			);
+			mockConnectClients.mockRejectedValue(new Error("Connect error"));
+			// Ensure configuration generator yields a config so connectClients is called
+			mockConfiguration.mockImplementation(async function* () {
+				yield defaultConfig;
+			});
+
+			// Act
+			const result = await proxy();
+
+			// Assert
+			expect(mockConfiguration).toHaveBeenCalledTimes(1);
+			expect(mockSetRequestHandlers).toHaveBeenCalledWith(server);
+			expect(mockConnectClients).toHaveBeenCalledWith(defaultConfig);
+			expect(mockServerConnect).toHaveBeenCalledTimes(1);
+			expect(mockStartConfigurationPolling).toHaveBeenCalledTimes(1);
+			expect(mockLoggerInfo).toHaveBeenCalledWith("MCP Proxy Server starting");
+			expect(mockLoggerWarn).toHaveBeenCalledWith(
+				"Error fetching initial configuration, will keep polling for viable config",
+				expect.any(Error),
+			);
+			expect(mockLoggerInfo).toHaveBeenCalledWith(
+				"MCP Proxy Server started (waiting for configuration)",
+			);
+			expect(typeof result[Symbol.dispose]).toBe("function");
+
+			mockLoggerWarn.mockRestore();
 		});
 
 		test("handles server connect error", async () => {
@@ -147,6 +234,23 @@ describe("proxy", () => {
 			return expect(proxy()).rejects.toThrow(
 				/Failed to start MCP Proxy Server/,
 			);
+		});
+
+		test("wraps non-AuthenticationError from server setup as ProxyError", async () => {
+			// Arrange
+			const originalError = new Error("Server setup error");
+			mockServerConnect.mockRejectedValue(originalError);
+
+			// Act & Assert
+			try {
+				await proxy();
+				expect.unreachable("Expected proxy to throw");
+			} catch (error) {
+				expect(error).toBeInstanceOf(ProxyError);
+				expect(error.name).toBe("ProxyError");
+				expect(error.message).toContain("Failed to start MCP Proxy Server");
+				expect(error.cause).toBe(originalError);
+			}
 		});
 
 		test("propagates cleanup error during dispose", async () => {
