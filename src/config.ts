@@ -156,13 +156,10 @@ export const initializeConfiguration = async (
 	abortController?: AbortController,
 ): Promise<Configuration | undefined> => {
 	const generator = generateConfiguration(configurationUrl, options);
-	const generator = configurations(configurationUrl, options);
-	const next = await generator.next();
-	const configuration = next.value;
+	const { value: configuration } = await generator.next();
 
-	if (abortController) {
-		startConfigurationPolling(generator, abortController);
-	}
+	if (abortController)
+		void startConfigurationPolling(generator, abortController);
 
-	return configuration;
+	return configuration as Configuration | undefined;
 };
