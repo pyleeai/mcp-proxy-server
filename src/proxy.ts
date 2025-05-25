@@ -27,23 +27,19 @@ export const proxy = async (
 		const configGen = configuration(configurationUrl, options);
 
 		let hasInitialConfig = false;
-		const getInitialConfig = async () => {
-			try {
-				const { value, done } = await configGen.next();
-				if (!done) {
-					await connectClients(value as Configuration);
-					hasInitialConfig = true;
-					log.info("MCP Proxy Server started with initial configuration");
-				} else {
-					log.warn("Failed to get initial configuration, will keep polling");
-				}
-			} catch (error) {
-				if (error instanceof AuthenticationError) throw error;
-				log.warn("Error fetching initial configuration, will keep polling", error);
+		try {
+			const { value, done } = await configGen.next();
+			if (!done) {
+				await connectClients(value as Configuration);
+				hasInitialConfig = true;
+				log.info("MCP Proxy Server started with initial configuration");
+			} else {
+				log.warn("Failed to get initial configuration, will keep polling");
 			}
-		};
-
-		await getInitialConfig();
+		} catch (error) {
+			if (error instanceof AuthenticationError) throw error;
+			log.warn("Error fetching initial configuration, will keep polling", error);
+		}
 
 		await server.connect(transport);
 
