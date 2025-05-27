@@ -86,6 +86,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalledWith(
 			"No configuration URL found, using default empty configuration",
 		);
@@ -108,6 +109,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalledWith(
 			"The configuration URL is not valid, using default empty configuration",
 		);
@@ -134,6 +136,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Timeout fetching configuration");
@@ -156,6 +159,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Network error fetching configuration");
@@ -173,6 +177,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 	});
 
@@ -220,6 +225,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Error fetching configuration");
@@ -250,6 +256,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Error fetching configuration");
@@ -280,6 +287,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Error fetching configuration");
@@ -363,6 +371,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(validConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Fetching configuration from https://example.com/config",
 		);
@@ -387,6 +396,7 @@ describe("configuration", () => {
 		await gen.next();
 
 		// Assert
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(fetchSpy).toHaveBeenCalledWith(
 			customUrl,
 			expect.objectContaining({
@@ -419,6 +429,7 @@ describe("configuration", () => {
 		await gen.next();
 
 		// Assert
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(fetchSpy).toHaveBeenCalledWith(
 			mockConfigUrl,
 			expect.objectContaining({
@@ -452,6 +463,7 @@ describe("configuration", () => {
 		await gen.next();
 
 		// Assert
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(fetchSpy).toHaveBeenCalledWith(
 			mockConfigUrl,
 			expect.objectContaining({
@@ -488,6 +500,7 @@ describe("configuration", () => {
 		expect(result1.done).toBe(false);
 		expect(result1.value).toEqual(validConfiguration);
 		expect(result2.done).toBe(true);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
 	});
 
@@ -539,6 +552,7 @@ describe("configuration", () => {
 		expect(result1.value).toEqual(validConfiguration);
 		expect(result2.done).toBe(false);
 		expect(result2.value).toEqual(updatedConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration changed");
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
 	});
@@ -861,6 +875,7 @@ describe("initializeConfiguration", () => {
 
 		// Assert
 		expect(result).toEqual(testConfig);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 	});
 
 	test("returns undefined config when not available", async () => {
@@ -907,6 +922,7 @@ describe("initializeConfiguration", () => {
 
 		// Assert
 		expect(result).toBeDefined();
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 	});
 
 	test("passes through AuthenticationError", async () => {

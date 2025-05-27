@@ -104,12 +104,11 @@ export async function* generateConfiguration(
 				configurationUrl,
 				options?.headers,
 			);
-			const configChanged =
-				!currentConfiguration ||
-				!areConfigurationsEqual(currentConfiguration, newConfiguration);
-
-			if (configChanged) {
-				log.info("Configuration changed");
+			const isFirstConfiguration = !currentConfiguration;
+			const hasConfigurationChanged = currentConfiguration && !areConfigurationsEqual(currentConfiguration, newConfiguration);
+			
+			if (isFirstConfiguration || hasConfigurationChanged) {
+				log.info(isFirstConfiguration ? "Configuration initialized" : "Configuration changed");
 				currentConfiguration = newConfiguration;
 				yield newConfiguration;
 			}
