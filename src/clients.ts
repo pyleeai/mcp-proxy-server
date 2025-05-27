@@ -27,6 +27,12 @@ export const connectClients = async (
 	}
 
 	const servers = Object.entries(configuration.mcp.servers);
+	
+	if (servers.length === 0) {
+		log.info("No servers to connect");
+		return;
+	}
+
 	log.info(`Connecting to ${servers.length} servers`);
 
 	const results = await Promise.allSettled(

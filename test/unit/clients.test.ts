@@ -67,7 +67,7 @@ describe("connectClients", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(mockLoggerInfo).toHaveBeenCalledWith("Connecting to 0 servers");
+		expect(mockLoggerInfo).toHaveBeenCalledWith("No servers to connect");
 		expect(mockCreateClient).not.toHaveBeenCalled();
 		expect(mockConnect).not.toHaveBeenCalled();
 		expect(mockSetClientState).not.toHaveBeenCalled();
