@@ -163,22 +163,51 @@ describe("connect", () => {
 		expect(connectSpy).toHaveBeenCalledTimes(2);
 	});
 
-	test("returns undefined when no connection method is available", async () => {
+	test("throws error when no connection method is available", async () => {
 		// Arrange
 		const server: ServerConfiguration = {};
-		retrySpy.mockImplementation(async <T>(fn: () => T | Promise<T>) => {
-			try {
-				return await fn();
-			} catch {
-				return undefined;
-			}
-		});
 
-		// Act
-		const result = await connect(mockClient, server);
+		// Act & Assert
+		await expect(connect(mockClient, server)).rejects.toThrow(
+			"Invalid server configuration"
+		);
+		expect(retrySpy).not.toHaveBeenCalled();
+		expect(createHTTPTransportSpy).not.toHaveBeenCalled();
+		expect(createSSETransportSpy).not.toHaveBeenCalled();
+		expect(createStdioTransportSpy).not.toHaveBeenCalled();
+	});
 
-		// Assert
-		expect(result).toBeUndefined();
+	test("throws error when server has empty url and command", async () => {
+		// Arrange
+		const server: ServerConfiguration = { url: "", command: "" };
+
+		// Act & Assert
+		await expect(connect(mockClient, server)).rejects.toThrow(
+			"Invalid server configuration"
+		);
+		expect(retrySpy).not.toHaveBeenCalled();
+		expect(createHTTPTransportSpy).not.toHaveBeenCalled();
+		expect(createSSETransportSpy).not.toHaveBeenCalled();
+		expect(createStdioTransportSpy).not.toHaveBeenCalled();
+	});
+
+	test("throws error when server configuration is null", async () => {
+		// Act & Assert
+		await expect(connect(mockClient, null)).rejects.toThrow(
+			"Invalid server configuration"
+		);
+		expect(retrySpy).not.toHaveBeenCalled();
+		expect(createHTTPTransportSpy).not.toHaveBeenCalled();
+		expect(createSSETransportSpy).not.toHaveBeenCalled();
+		expect(createStdioTransportSpy).not.toHaveBeenCalled();
+	});
+
+	test("throws error when server configuration is undefined", async () => {
+		// Act & Assert
+		await expect(connect(mockClient, undefined)).rejects.toThrow(
+			"Invalid server configuration"
+		);
+		expect(retrySpy).not.toHaveBeenCalled();
 		expect(createHTTPTransportSpy).not.toHaveBeenCalled();
 		expect(createSSETransportSpy).not.toHaveBeenCalled();
 		expect(createStdioTransportSpy).not.toHaveBeenCalled();
