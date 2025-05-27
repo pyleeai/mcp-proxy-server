@@ -60,6 +60,7 @@ const fetchConfiguration = async (
 
 	if (!response.ok) {
 		if (response.status === 401) {
+			log.error("Authentication failed");
 			throw new AuthenticationError(
 				`Authentication failed (${response.status} ${response.statusText})`,
 			);

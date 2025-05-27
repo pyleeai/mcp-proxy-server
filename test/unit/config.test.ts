@@ -200,6 +200,7 @@ describe("configuration", () => {
 		// Act & Assert
 		const gen = generateConfiguration();
 		await expect(gen.next()).rejects.toThrow(AuthenticationError);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Authentication failed");
 	});
 
 	test("yields default configuration on 404 HTTP error", async () => {
@@ -857,7 +858,7 @@ describe("startConfigurationPolling", () => {
 			startConfigurationPolling(mockConfigGen(), abortController),
 		).rejects.toThrow(AuthenticationError);
 
-		// Verify no error logging occurred for AuthenticationError
+		// Verify no error logging occurred for AuthenticationError (it's re-thrown, not originated here)
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
 	});
 });
@@ -988,5 +989,6 @@ describe("initializeConfiguration", () => {
 		await expect(
 			initializeConfiguration(undefined, undefined, abortController),
 		).rejects.toThrow(AuthenticationError);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Authentication failed");
 	});
 });
