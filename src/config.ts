@@ -53,7 +53,6 @@ const fetchConfiguration = async (
 		} else {
 			log.warn(
 				"Network error fetching configuration, using default empty configuration",
-				error,
 			);
 		}
 		return defaultConfiguration;

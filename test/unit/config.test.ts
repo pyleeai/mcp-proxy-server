@@ -160,7 +160,6 @@ describe("configuration", () => {
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Network error fetching configuration");
-		expect(warnCall[1]).toBe(networkError);
 	});
 
 	test("yields default configuration on network error", async () => {
