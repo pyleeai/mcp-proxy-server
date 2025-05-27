@@ -169,7 +169,7 @@ describe("connect", () => {
 
 		// Act & Assert
 		await expect(connect(mockClient, server)).rejects.toThrow(
-			"Invalid server configuration"
+			"Invalid server configuration",
 		);
 		expect(retrySpy).not.toHaveBeenCalled();
 		expect(createHTTPTransportSpy).not.toHaveBeenCalled();
@@ -183,7 +183,7 @@ describe("connect", () => {
 
 		// Act & Assert
 		await expect(connect(mockClient, server)).rejects.toThrow(
-			"Invalid server configuration"
+			"Invalid server configuration",
 		);
 		expect(retrySpy).not.toHaveBeenCalled();
 		expect(createHTTPTransportSpy).not.toHaveBeenCalled();
@@ -194,7 +194,7 @@ describe("connect", () => {
 	test("throws error when server configuration is null", async () => {
 		// Act & Assert
 		await expect(connect(mockClient, null)).rejects.toThrow(
-			"Invalid server configuration"
+			"Invalid server configuration",
 		);
 		expect(retrySpy).not.toHaveBeenCalled();
 		expect(createHTTPTransportSpy).not.toHaveBeenCalled();
@@ -205,7 +205,7 @@ describe("connect", () => {
 	test("throws error when server configuration is undefined", async () => {
 		// Act & Assert
 		await expect(connect(mockClient, undefined)).rejects.toThrow(
-			"Invalid server configuration"
+			"Invalid server configuration",
 		);
 		expect(retrySpy).not.toHaveBeenCalled();
 		expect(createHTTPTransportSpy).not.toHaveBeenCalled();
