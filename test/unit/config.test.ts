@@ -137,7 +137,6 @@ describe("configuration", () => {
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Timeout fetching configuration");
-		expect(warnCall[1]).toBe(abortError);
 	});
 
 	test("yields default configuration on non-timeout fetch error", async () => {

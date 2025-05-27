@@ -48,7 +48,6 @@ const fetchConfiguration = async (
 		if (error instanceof DOMException && error.name === "AbortError") {
 			log.warn(
 				`Timeout fetching configuration (exceeded ${timeoutMs / 1000}s), using default empty configuration`,
-				error,
 			);
 		} else {
 			log.warn(
