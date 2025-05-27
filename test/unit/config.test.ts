@@ -589,6 +589,45 @@ describe("configuration", () => {
 		expect(result1.value).toEqual(validConfiguration);
 		// Polling errors are handled gracefully without terminating the generator
 	});
+
+	test("logs 'Configuration changed' when first fetch fails then succeeds", async () => {
+		// Arrange
+		mockPollInterval = 100;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		fetchSpy
+			.mockImplementationOnce(() =>
+				Promise.resolve(
+					new Response("{invalid json syntax", {
+						status: 200,
+					}),
+				),
+			)
+			.mockImplementationOnce(() =>
+				Promise.resolve(
+					new Response(JSON.stringify(validConfiguration), {
+						status: 200,
+					}),
+				),
+			);
+
+		// Act
+		const gen = generateConfiguration();
+
+		// Wait for the polling cycle to complete (first error, then delay, then success)
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(validConfiguration);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Error fetching configuration");
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration changed");
+		expect(loggerInfoSpy).not.toHaveBeenCalledWith("Configuration initialized");
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
+	});
 });
 
 describe("areConfigurationsEqual", () => {

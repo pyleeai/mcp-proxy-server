@@ -7,16 +7,17 @@ import { delay } from "./utils";
 
 using log = logger;
 
+const defaultConfiguration: Configuration = {
+	mcp: {
+		servers: {},
+	},
+};
+
 const fetchConfiguration = async (
 	configurationUrl: string | undefined = CONFIGURATION_URL,
 	headers?: Record<string, string>,
 ): Promise<Configuration> => {
 	const timeoutMs = 10000;
-	const defaultConfiguration: Configuration = {
-		mcp: {
-			servers: {},
-		},
-	};
 
 	if (!configurationUrl) {
 		log.warn("No configuration URL found, using default empty configuration");
@@ -104,11 +105,15 @@ export async function* generateConfiguration(
 				configurationUrl,
 				options?.headers,
 			);
-			const isFirstConfiguration = !currentConfiguration;
-			const hasConfigurationChanged = currentConfiguration && !areConfigurationsEqual(currentConfiguration, newConfiguration);
-			
-			if (isFirstConfiguration || hasConfigurationChanged) {
-				log.info(isFirstConfiguration ? "Configuration initialized" : "Configuration changed");
+			if (
+				!currentConfiguration ||
+				!areConfigurationsEqual(currentConfiguration, newConfiguration)
+			) {
+				log.info(
+					currentConfiguration
+						? "Configuration changed"
+						: "Configuration initialized",
+				);
 				currentConfiguration = newConfiguration;
 				yield newConfiguration;
 			}
@@ -117,6 +122,10 @@ export async function* generateConfiguration(
 				throw error;
 			}
 			log.error("Error fetching configuration");
+
+			if (!currentConfiguration) {
+				currentConfiguration = defaultConfiguration;
+			}
 		}
 
 		if (CONFIGURATION_POLL_INTERVAL <= 0) {
