@@ -844,9 +844,7 @@ describe("startConfigurationPolling", () => {
 	test("re-throws AuthenticationError during polling", async () => {
 		// Arrange
 		const abortController = new AbortController();
-		const authError = new AuthenticationError(
-			"Authentication failed during polling",
-		);
+		const authError = new AuthenticationError();
 
 		async function* mockConfigGen() {
 			yield defaultConfig;

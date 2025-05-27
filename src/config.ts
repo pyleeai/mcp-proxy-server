@@ -61,9 +61,7 @@ const fetchConfiguration = async (
 	if (!response.ok) {
 		if (response.status === 401) {
 			log.error("Authentication failed");
-			throw new AuthenticationError(
-				`Authentication failed (${response.status} ${response.statusText})`,
-			);
+			throw new AuthenticationError();
 		}
 		log.warn(
 			`Error fetching configuration (${response.status} ${response.statusText}), using default empty configuration`,
