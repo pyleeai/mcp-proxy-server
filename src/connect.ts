@@ -10,7 +10,14 @@ import { retry } from "./utils";
 
 using log = logger;
 
-export const connect = async (client: Client, server: ServerConfiguration) => {
+export const connect = async (
+	client: Client,
+	server: ServerConfiguration | null | undefined,
+) => {
+	if (!server || (!server.url && !server.command)) {
+		throw new Error("Invalid server configuration");
+	}
+
 	return await retry(async () => {
 		if (server.url) {
 			try {

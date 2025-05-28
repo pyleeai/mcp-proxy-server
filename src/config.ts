@@ -7,16 +7,17 @@ import { delay } from "./utils";
 
 using log = logger;
 
+const defaultConfiguration: Configuration = {
+	mcp: {
+		servers: {},
+	},
+};
+
 const fetchConfiguration = async (
 	configurationUrl: string | undefined = CONFIGURATION_URL,
 	headers?: Record<string, string>,
 ): Promise<Configuration> => {
 	const timeoutMs = 10000;
-	const defaultConfiguration: Configuration = {
-		mcp: {
-			servers: {},
-		},
-	};
 
 	if (!configurationUrl) {
 		log.warn("No configuration URL found, using default empty configuration");
@@ -48,12 +49,10 @@ const fetchConfiguration = async (
 		if (error instanceof DOMException && error.name === "AbortError") {
 			log.warn(
 				`Timeout fetching configuration (exceeded ${timeoutMs / 1000}s), using default empty configuration`,
-				error,
 			);
 		} else {
 			log.warn(
 				"Network error fetching configuration, using default empty configuration",
-				error,
 			);
 		}
 		return defaultConfiguration;
@@ -61,9 +60,8 @@ const fetchConfiguration = async (
 
 	if (!response.ok) {
 		if (response.status === 401) {
-			throw new AuthenticationError(
-				`Authentication failed (${response.status} ${response.statusText})`,
-			);
+			log.error("Authentication failed");
+			throw new AuthenticationError();
 		}
 		log.warn(
 			`Error fetching configuration (${response.status} ${response.statusText}), using default empty configuration`,
@@ -106,12 +104,15 @@ export async function* generateConfiguration(
 				configurationUrl,
 				options?.headers,
 			);
-			const configChanged =
+			if (
 				!currentConfiguration ||
-				!areConfigurationsEqual(currentConfiguration, newConfiguration);
-
-			if (configChanged) {
-				log.info("Configuration changed");
+				!areConfigurationsEqual(currentConfiguration, newConfiguration)
+			) {
+				log.info(
+					currentConfiguration
+						? "Configuration changed"
+						: "Configuration initialized",
+				);
 				currentConfiguration = newConfiguration;
 				yield newConfiguration;
 			}
@@ -120,6 +121,10 @@ export async function* generateConfiguration(
 				throw error;
 			}
 			log.error("Error fetching configuration");
+
+			if (!currentConfiguration) {
+				currentConfiguration = defaultConfiguration;
+			}
 		}
 
 		if (CONFIGURATION_POLL_INTERVAL <= 0) {

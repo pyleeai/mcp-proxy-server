@@ -86,6 +86,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalledWith(
 			"No configuration URL found, using default empty configuration",
 		);
@@ -108,6 +109,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalledWith(
 			"The configuration URL is not valid, using default empty configuration",
 		);
@@ -134,10 +136,10 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Timeout fetching configuration");
-		expect(warnCall[1]).toBe(abortError);
 	});
 
 	test("yields default configuration on non-timeout fetch error", async () => {
@@ -157,10 +159,10 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Network error fetching configuration");
-		expect(warnCall[1]).toBe(networkError);
 	});
 
 	test("yields default configuration on network error", async () => {
@@ -175,6 +177,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 	});
 
@@ -197,6 +200,7 @@ describe("configuration", () => {
 		// Act & Assert
 		const gen = generateConfiguration();
 		await expect(gen.next()).rejects.toThrow(AuthenticationError);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Authentication failed");
 	});
 
 	test("yields default configuration on 404 HTTP error", async () => {
@@ -222,6 +226,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Error fetching configuration");
@@ -252,6 +257,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Error fetching configuration");
@@ -282,6 +288,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(defaultConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerWarnSpy).toHaveBeenCalled();
 		const warnCall = loggerWarnSpy.mock.calls[0];
 		expect(warnCall[0]).toContain("Error fetching configuration");
@@ -365,6 +372,7 @@ describe("configuration", () => {
 		// Assert
 		expect(result.done).toBe(false);
 		expect(result.value).toEqual(validConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerDebugSpy).toHaveBeenCalledWith(
 			"Fetching configuration from https://example.com/config",
 		);
@@ -389,6 +397,7 @@ describe("configuration", () => {
 		await gen.next();
 
 		// Assert
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(fetchSpy).toHaveBeenCalledWith(
 			customUrl,
 			expect.objectContaining({
@@ -421,6 +430,7 @@ describe("configuration", () => {
 		await gen.next();
 
 		// Assert
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(fetchSpy).toHaveBeenCalledWith(
 			mockConfigUrl,
 			expect.objectContaining({
@@ -454,6 +464,7 @@ describe("configuration", () => {
 		await gen.next();
 
 		// Assert
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(fetchSpy).toHaveBeenCalledWith(
 			mockConfigUrl,
 			expect.objectContaining({
@@ -490,6 +501,7 @@ describe("configuration", () => {
 		expect(result1.done).toBe(false);
 		expect(result1.value).toEqual(validConfiguration);
 		expect(result2.done).toBe(true);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
 	});
 
@@ -541,6 +553,7 @@ describe("configuration", () => {
 		expect(result1.value).toEqual(validConfiguration);
 		expect(result2.done).toBe(false);
 		expect(result2.value).toEqual(updatedConfiguration);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration changed");
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
 	});
@@ -576,6 +589,45 @@ describe("configuration", () => {
 		expect(result1.done).toBe(false);
 		expect(result1.value).toEqual(validConfiguration);
 		// Polling errors are handled gracefully without terminating the generator
+	});
+
+	test("logs 'Configuration changed' when first fetch fails then succeeds", async () => {
+		// Arrange
+		mockPollInterval = 100;
+		mock.module(ENV_MODULE, () => ({
+			CONFIGURATION_URL: mockConfigUrl,
+			CONFIGURATION_POLL_INTERVAL: mockPollInterval,
+		}));
+
+		fetchSpy
+			.mockImplementationOnce(() =>
+				Promise.resolve(
+					new Response("{invalid json syntax", {
+						status: 200,
+					}),
+				),
+			)
+			.mockImplementationOnce(() =>
+				Promise.resolve(
+					new Response(JSON.stringify(validConfiguration), {
+						status: 200,
+					}),
+				),
+			);
+
+		// Act
+		const gen = generateConfiguration();
+
+		// Wait for the polling cycle to complete (first error, then delay, then success)
+		const result = await gen.next();
+
+		// Assert
+		expect(result.done).toBe(false);
+		expect(result.value).toEqual(validConfiguration);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Error fetching configuration");
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration changed");
+		expect(loggerInfoSpy).not.toHaveBeenCalledWith("Configuration initialized");
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
 	});
 });
 
@@ -792,9 +844,7 @@ describe("startConfigurationPolling", () => {
 	test("re-throws AuthenticationError during polling", async () => {
 		// Arrange
 		const abortController = new AbortController();
-		const authError = new AuthenticationError(
-			"Authentication failed during polling",
-		);
+		const authError = new AuthenticationError();
 
 		async function* mockConfigGen() {
 			yield defaultConfig;
@@ -806,7 +856,7 @@ describe("startConfigurationPolling", () => {
 			startConfigurationPolling(mockConfigGen(), abortController),
 		).rejects.toThrow(AuthenticationError);
 
-		// Verify no error logging occurred for AuthenticationError
+		// Verify no error logging occurred for AuthenticationError (it's re-thrown, not originated here)
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
 	});
 });
@@ -863,6 +913,7 @@ describe("initializeConfiguration", () => {
 
 		// Assert
 		expect(result).toEqual(testConfig);
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 	});
 
 	test("returns undefined config when not available", async () => {
@@ -909,6 +960,7 @@ describe("initializeConfiguration", () => {
 
 		// Assert
 		expect(result).toBeDefined();
+		expect(loggerInfoSpy).toHaveBeenCalledWith("Configuration initialized");
 	});
 
 	test("passes through AuthenticationError", async () => {
@@ -935,5 +987,6 @@ describe("initializeConfiguration", () => {
 		await expect(
 			initializeConfiguration(undefined, undefined, abortController),
 		).rejects.toThrow(AuthenticationError);
+		expect(loggerErrorSpy).toHaveBeenCalledWith("Authentication failed");
 	});
 });

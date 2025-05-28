@@ -30,7 +30,7 @@ export class ProxyError extends Error {
 
 export class AuthenticationError extends Error {
 	constructor(
-		message: string,
+		message = "Authentication failed",
 		public cause?: unknown,
 	) {
 		super(message, { cause });

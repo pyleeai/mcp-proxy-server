@@ -143,7 +143,7 @@ describe("proxy", () => {
 
 		test("bubbles up AuthenticationError from initial configuration fetch", async () => {
 			// Arrange
-			const originalError = new AuthenticationError("Unauthorized access");
+			const originalError = new AuthenticationError();
 			mockInitializeConfiguration.mockImplementation(async () => {
 				throw originalError;
 			});
@@ -156,7 +156,7 @@ describe("proxy", () => {
 				expect(error).toBeInstanceOf(AuthenticationError);
 				expect((error as AuthenticationError).name).toBe("AuthenticationError");
 				expect((error as AuthenticationError).message).toBe(
-					"Unauthorized access",
+					"Authentication failed",
 				);
 				expect(error).toBe(originalError);
 			}

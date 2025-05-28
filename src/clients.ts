@@ -17,35 +17,37 @@ export const connectClients = async (
 	if (clients.length > 0) {
 		log.info("Disconnecting existing clients");
 		await Promise.allSettled(
-			clients.map(async (client) => {
-				if (client.transport) {
-					await client.transport.close();
-				}
-			}),
+			clients.map(async (client) => client.transport?.close()),
 		);
 		clearAllClientStates();
 	}
 
 	const servers = Object.entries(configuration.mcp.servers);
+
+	if (servers.length === 0) {
+		log.info("No servers to connect");
+		return;
+	}
+
 	log.info(`Connecting to ${servers.length} servers`);
 
 	const results = await Promise.allSettled(
 		servers.map(async ([name, server]) => {
-			const client = createClient();
-			const transport = await connect(client, server);
-			setClientState(name, { name, client, transport });
-			return name;
+			try {
+				const client = createClient();
+				const transport = await connect(client, server);
+				if (!transport) throw new Error(`No transport for server ${name}`);
+				setClientState(name, { name, client, transport });
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : String(error);
+				log.warn(`Failed to connect to server ${name}: ${errorMessage}`);
+				throw error;
+			}
 		}),
 	);
 
 	const successful = results.filter((r) => r.status === "fulfilled").length;
-	const failures = results.filter(
-		(r) => r.status === "rejected",
-	) as PromiseRejectedResult[];
 
-	for (const failure of failures) {
-		log.error("Failed to connect to client", failure.reason);
-	}
-
-	log.info(`Successfully connected to ${successful}/${servers.length} servers`);
+	log.info(`Connected to ${successful}/${servers.length} servers`);
 };

@@ -6,7 +6,11 @@ import { connectClients } from "../../src/clients";
 import * as connectModule from "../../src/connect";
 import * as dataModule from "../../src/data";
 import { logger } from "../../src/logger";
-import type { ClientState, Configuration } from "../../src/types";
+import type {
+	ClientState,
+	Configuration,
+	ServerConfiguration,
+} from "../../src/types";
 
 let mockCreateClient: ReturnType<typeof spyOn>;
 let mockConnect: ReturnType<typeof spyOn>;
@@ -16,6 +20,7 @@ let mockClearAllClientStates: ReturnType<typeof spyOn>;
 let mockLoggerInfo: ReturnType<typeof spyOn>;
 let mockLoggerDebug: ReturnType<typeof spyOn>;
 let mockLoggerError: ReturnType<typeof spyOn>;
+let mockLoggerWarn: ReturnType<typeof spyOn>;
 
 describe("connectClients", () => {
 	const mockClient = { name: "mockClient" } as unknown as Client;
@@ -41,6 +46,7 @@ describe("connectClients", () => {
 		mockLoggerInfo = spyOn(logger, "info");
 		mockLoggerDebug = spyOn(logger, "debug");
 		mockLoggerError = spyOn(logger, "error").mockImplementation(() => "");
+		mockLoggerWarn = spyOn(logger, "warn").mockImplementation(() => "");
 	});
 
 	afterEach(() => {
@@ -52,6 +58,7 @@ describe("connectClients", () => {
 		mockLoggerInfo.mockRestore();
 		mockLoggerDebug.mockRestore();
 		mockLoggerError.mockRestore();
+		mockLoggerWarn.mockRestore();
 	});
 
 	test("should handle empty configuration with no servers", async () => {
@@ -67,7 +74,7 @@ describe("connectClients", () => {
 
 		// Assert
 		expect(mockGetAllClientStates).toHaveBeenCalledTimes(1);
-		expect(mockLoggerInfo).toHaveBeenCalledWith("Connecting to 0 servers");
+		expect(mockLoggerInfo).toHaveBeenCalledWith("No servers to connect");
 		expect(mockCreateClient).not.toHaveBeenCalled();
 		expect(mockConnect).not.toHaveBeenCalled();
 		expect(mockSetClientState).not.toHaveBeenCalled();
@@ -100,9 +107,7 @@ describe("connectClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(3);
 		expect(mockConnect).toHaveBeenCalledTimes(3);
 		expect(mockSetClientState).toHaveBeenCalledTimes(3);
-		expect(mockLoggerInfo).toHaveBeenCalledWith(
-			"Successfully connected to 3/3 servers",
-		);
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Connected to 3/3 servers");
 		expect(mockClearAllClientStates).not.toHaveBeenCalled();
 	});
 
@@ -126,9 +131,7 @@ describe("connectClients", () => {
 		expect(mockCreateClient).toHaveBeenCalledTimes(2);
 		expect(mockConnect).toHaveBeenCalledTimes(2);
 		expect(mockSetClientState).toHaveBeenCalledTimes(2);
-		expect(mockLoggerInfo).toHaveBeenCalledWith(
-			"Successfully connected to 2/2 servers",
-		);
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Connected to 2/2 servers");
 		expect(mockConnect).toHaveBeenCalledWith(mockClient, {
 			url: "http://server1.example.com",
 		});
@@ -290,7 +293,7 @@ describe("connectClients", () => {
 			return Promise.resolve(mockTransport);
 		});
 
-		mockLoggerError.mockClear();
+		mockLoggerWarn.mockClear();
 
 		const configuration: Configuration = {
 			mcp: {
@@ -308,13 +311,10 @@ describe("connectClients", () => {
 		// Assert
 		expect(mockConnect).toHaveBeenCalledTimes(3);
 		expect(mockSetClientState).toHaveBeenCalledTimes(2); // Only 2 successful connections
-		expect(mockLoggerError).toHaveBeenCalledWith(
-			"Failed to connect to client",
-			expect.any(Error),
+		expect(mockLoggerWarn).toHaveBeenCalledWith(
+			"Failed to connect to server server2: Connection failed for server2",
 		);
-		expect(mockLoggerInfo).toHaveBeenCalledWith(
-			"Successfully connected to 2/3 servers",
-		);
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Connected to 2/3 servers");
 	});
 
 	test("should continue when all client connections fail", async () => {
@@ -323,7 +323,7 @@ describe("connectClients", () => {
 			return Promise.reject(new Error("All connections failed"));
 		});
 
-		mockLoggerError.mockClear();
+		mockLoggerWarn.mockClear();
 
 		const configuration: Configuration = {
 			mcp: {
@@ -340,10 +340,8 @@ describe("connectClients", () => {
 		// Assert
 		expect(mockConnect).toHaveBeenCalledTimes(2);
 		expect(mockSetClientState).not.toHaveBeenCalled();
-		expect(mockLoggerError).toHaveBeenCalledTimes(2);
-		expect(mockLoggerInfo).toHaveBeenCalledWith(
-			"Successfully connected to 0/2 servers",
-		);
+		expect(mockLoggerWarn).toHaveBeenCalledTimes(2);
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Connected to 0/2 servers");
 	});
 
 	test("should handle mixed success and failure scenarios gracefully", async () => {
@@ -359,7 +357,7 @@ describe("connectClients", () => {
 			return Promise.resolve(mockTransport);
 		});
 
-		mockLoggerError.mockClear();
+		mockLoggerWarn.mockClear();
 
 		const configuration: Configuration = {
 			mcp: {
@@ -378,9 +376,89 @@ describe("connectClients", () => {
 		// Assert
 		expect(mockConnect).toHaveBeenCalledTimes(4);
 		expect(mockSetClientState).toHaveBeenCalledTimes(2); // Only 2 successful connections
-		expect(mockLoggerError).toHaveBeenCalledTimes(2); // 2 failures
-		expect(mockLoggerInfo).toHaveBeenCalledWith(
-			"Successfully connected to 2/4 servers",
+		expect(mockLoggerWarn).toHaveBeenCalledTimes(2); // 2 failures
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Connected to 2/4 servers");
+	});
+
+	test("should handle connect function validation errors", async () => {
+		// Arrange
+		let connectCallCount = 0;
+		mockConnect.mockImplementation(
+			(_client: Client, server: ServerConfiguration) => {
+				connectCallCount++;
+				if (connectCallCount === 1 || connectCallCount === 2) {
+					return Promise.reject(new Error("Invalid server configuration"));
+				}
+				return Promise.resolve(mockTransport);
+			},
 		);
+
+		mockLoggerError.mockClear();
+
+		const configuration: Configuration = {
+			mcp: {
+				servers: {
+					invalidServer1: { url: "http://server1.example.com" }, // Will trigger first error
+					invalidServer2: { url: "http://server2.example.com" }, // Will trigger second error
+					validServer: { url: "http://server3.example.com" },
+				},
+			},
+		};
+
+		// Act
+		await connectClients(configuration);
+
+		// Assert
+		expect(mockConnect).toHaveBeenCalledTimes(3);
+		expect(mockSetClientState).toHaveBeenCalledTimes(1); // Only 1 successful connection
+		expect(mockLoggerWarn).toHaveBeenCalledTimes(2); // 2 validation failures
+		expect(mockLoggerWarn).toHaveBeenCalledWith(
+			"Failed to connect to server invalidServer1: Invalid server configuration",
+		);
+		expect(mockLoggerWarn).toHaveBeenCalledWith(
+			"Failed to connect to server invalidServer2: Invalid server configuration",
+		);
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Connected to 1/3 servers");
+	});
+
+	test("should handle connect function returning undefined", async () => {
+		// Arrange
+		let connectCallCount = 0;
+		mockConnect.mockImplementation(
+			(_client: Client, server: ServerConfiguration) => {
+				connectCallCount++;
+				if (connectCallCount === 1 || connectCallCount === 3) {
+					return Promise.resolve(undefined); // Simulate retry failure
+				}
+				return Promise.resolve(mockTransport);
+			},
+		);
+
+		mockLoggerError.mockClear();
+
+		const configuration: Configuration = {
+			mcp: {
+				servers: {
+					retryFailedServer1: { url: "http://server1.example.com" },
+					successfulServer: { url: "http://server2.example.com" },
+					retryFailedServer2: { url: "http://server3.example.com" },
+				},
+			},
+		};
+
+		// Act
+		await connectClients(configuration);
+
+		// Assert
+		expect(mockConnect).toHaveBeenCalledTimes(3);
+		expect(mockSetClientState).toHaveBeenCalledTimes(1); // Only 1 successful connection
+		expect(mockLoggerWarn).toHaveBeenCalledTimes(2); // 2 undefined transport failures
+		expect(mockLoggerWarn).toHaveBeenCalledWith(
+			"Failed to connect to server retryFailedServer1: No transport for server retryFailedServer1",
+		);
+		expect(mockLoggerWarn).toHaveBeenCalledWith(
+			"Failed to connect to server retryFailedServer2: No transport for server retryFailedServer2",
+		);
+		expect(mockLoggerInfo).toHaveBeenCalledWith("Connected to 1/3 servers");
 	});
 });
