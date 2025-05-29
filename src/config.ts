@@ -1,7 +1,9 @@
+import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { connectClients } from "./clients";
 import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
 import { AuthenticationError, ConfigurationError } from "./errors";
 import { logger } from "./logger";
+import { sendAllListChangedNotifications } from "./notifications";
 import type { Configuration } from "./types";
 import { delay } from "./utils";
 
@@ -138,12 +140,14 @@ export async function* generateConfiguration(
 export const startConfigurationPolling = async (
 	configGen: AsyncGenerator<Configuration>,
 	abortController: AbortController,
+	server: Server,
 ) => {
 	try {
 		for await (const config of configGen) {
 			if (abortController.signal.aborted) break;
 			log.info("Configuration changed, reconnecting clients");
 			await connectClients(config);
+			await sendAllListChangedNotifications(server);
 		}
 	} catch (error) {
 		if (error instanceof AuthenticationError) {
@@ -159,12 +163,13 @@ export const initializeConfiguration = async (
 	configurationUrl?: string,
 	options?: { headers?: Record<string, string> },
 	abortController?: AbortController,
+	server?: Server,
 ): Promise<Configuration | undefined> => {
 	const generator = generateConfiguration(configurationUrl, options);
 	const { value: configuration } = await generator.next();
 
-	if (abortController)
-		void startConfigurationPolling(generator, abortController);
+	if (abortController && server)
+		void startConfigurationPolling(generator, abortController, server);
 
 	return configuration as Configuration | undefined;
 };

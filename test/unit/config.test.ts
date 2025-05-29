@@ -7,6 +7,7 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
+import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import * as clientsModule from "../../src/clients";
 import {
 	areConfigurationsEqual,
@@ -16,6 +17,12 @@ import {
 } from "../../src/config";
 import { AuthenticationError, ConfigurationError } from "../../src/errors";
 import { logger } from "../../src/logger";
+
+interface MockServer {
+	sendResourceListChanged: ReturnType<typeof mock>;
+	sendToolListChanged: ReturnType<typeof mock>;
+	sendPromptListChanged: ReturnType<typeof mock>;
+}
 
 const ENV_MODULE = "../../src/env";
 let mockConfigUrl = "https://example.com/config";
@@ -706,6 +713,12 @@ describe("startConfigurationPolling", () => {
 
 	const defaultConfig = { mcp: { servers: {} } };
 
+	const mockServer: MockServer = {
+		sendResourceListChanged: mock(async () => {}),
+		sendToolListChanged: mock(async () => {}),
+		sendPromptListChanged: mock(async () => {}),
+	};
+
 	beforeEach(() => {
 		mockConnectClients = spyOn(
 			clientsModule,
@@ -713,6 +726,9 @@ describe("startConfigurationPolling", () => {
 		).mockImplementation(async () => {});
 		loggerInfoSpy = spyOn(logger, "info");
 		loggerErrorSpy = spyOn(logger, "error");
+		mockServer.sendResourceListChanged.mockClear();
+		mockServer.sendToolListChanged.mockClear();
+		mockServer.sendPromptListChanged.mockClear();
 	});
 
 	afterEach(() => {
@@ -736,6 +752,7 @@ describe("startConfigurationPolling", () => {
 		const pollingPromise = startConfigurationPolling(
 			mockConfigGen(),
 			abortController,
+			mockServer as unknown as Server,
 		);
 
 		// Give time for polling to process
@@ -750,6 +767,35 @@ describe("startConfigurationPolling", () => {
 		expect(loggerInfoSpy).toHaveBeenCalledWith(
 			"Configuration changed, reconnecting clients",
 		);
+	});
+
+	test("sends list changed notifications when configuration changes", async () => {
+		// Arrange
+		const config1 = { mcp: { servers: { server1: {} } } };
+		const config2 = { mcp: { servers: { server2: {} } } };
+		const abortController = new AbortController();
+
+		async function* mockConfigGen() {
+			yield config1;
+			yield config2;
+		}
+
+		// Act
+		const pollingPromise = startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+			mockServer as unknown as Server,
+		);
+
+		// Give time for polling to process
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		abortController.abort();
+		await pollingPromise;
+
+		// Assert
+		expect(mockServer.sendResourceListChanged).toHaveBeenCalledTimes(2);
+		expect(mockServer.sendToolListChanged).toHaveBeenCalledTimes(2);
+		expect(mockServer.sendPromptListChanged).toHaveBeenCalledTimes(2);
 	});
 
 	test("stops polling when aborted", async () => {
@@ -769,6 +815,7 @@ describe("startConfigurationPolling", () => {
 		const pollingPromise = startConfigurationPolling(
 			mockConfigGen(),
 			abortController,
+			mockServer as unknown as Server,
 		);
 
 		// Give time for polling to start
@@ -792,7 +839,11 @@ describe("startConfigurationPolling", () => {
 		}
 
 		// Act
-		await startConfigurationPolling(mockConfigGen(), abortController);
+		await startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+			mockServer as unknown as Server,
+		);
 
 		// Assert
 		expect(loggerErrorSpy).toHaveBeenCalledWith(
@@ -812,7 +863,11 @@ describe("startConfigurationPolling", () => {
 		}
 
 		// Act
-		await startConfigurationPolling(mockConfigGen(), abortController);
+		await startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+			mockServer as unknown as Server,
+		);
 
 		// Assert
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
@@ -834,7 +889,11 @@ describe("startConfigurationPolling", () => {
 		}
 
 		// Act
-		await startConfigurationPolling(mockConfigGen(), abortController);
+		await startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+			mockServer as unknown as Server,
+		);
 
 		// Assert
 		expect(yieldCount).toBe(3);
@@ -853,7 +912,11 @@ describe("startConfigurationPolling", () => {
 
 		// Act & Assert
 		await expect(
-			startConfigurationPolling(mockConfigGen(), abortController),
+			startConfigurationPolling(
+				mockConfigGen(),
+				abortController,
+				mockServer as unknown as Server,
+			),
 		).rejects.toThrow(AuthenticationError);
 
 		// Verify no error logging occurred for AuthenticationError (it's re-thrown, not originated here)
