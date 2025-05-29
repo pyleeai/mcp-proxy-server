@@ -81,6 +81,7 @@ describe("proxy", () => {
 			customConfigUrl,
 			undefined,
 			expect.any(AbortController),
+			expect.any(Object),
 		);
 	});
 
@@ -99,6 +100,7 @@ describe("proxy", () => {
 			customConfigUrl,
 			{ headers: customHeaders },
 			expect.any(AbortController),
+			expect.any(Object),
 		);
 	});
 

@@ -22,6 +22,7 @@ export const proxy = async (
 		configurationUrl,
 		options,
 		abortController,
+		server,
 	);
 
 	setRequestHandlers(server);
