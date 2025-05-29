@@ -13,6 +13,7 @@ import {
 	CallToolResultSchema,
 	GetPromptRequestSchema,
 	GetPromptResultSchema,
+	InitializeRequestSchema,
 	ListPromptsRequestSchema,
 	ListPromptsResultSchema,
 	ListResourceTemplatesRequestSchema,
@@ -57,6 +58,7 @@ describe("setRequestHandlers", () => {
 	test("should set all request handlers on the server", () => {
 		// Arrange
 		const expectedHandlers = [
+			{ schema: InitializeRequestSchema, type: "initialize" },
 			{ schema: GetPromptRequestSchema, type: "read" },
 			{ schema: CallToolRequestSchema, type: "read" },
 			{ schema: ReadResourceRequestSchema, type: "read" },
