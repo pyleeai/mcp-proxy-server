@@ -1,4 +1,5 @@
 import { connectClients } from "./clients";
+import { clearAllClientStates, getAllClientStates } from "./data";
 import { CONFIGURATION_POLL_INTERVAL, CONFIGURATION_URL } from "./env";
 import { AuthenticationError, ConfigurationError } from "./errors";
 import { logger } from "./logger";
@@ -143,6 +144,14 @@ export const startConfigurationPolling = async (
 		for await (const config of configGen) {
 			if (abortController.signal.aborted) break;
 			log.info("Configuration changed, reconnecting clients");
+			const clients = getAllClientStates();
+			if (clients.length > 0) {
+				log.info("Disconnecting existing clients");
+				await Promise.allSettled(
+					clients.map(async (client) => client.transport?.close()),
+				);
+				clearAllClientStates();
+			}
 			await connectClients(config);
 		}
 	} catch (error) {

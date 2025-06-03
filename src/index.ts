@@ -1,1 +1,3 @@
-export { proxy as MCPProxyServer } from "./proxy";
+export type { Configuration } from "./types";
+export { connectClients } from "./clients";
+export { setRequestHandlers } from "./handlers";
