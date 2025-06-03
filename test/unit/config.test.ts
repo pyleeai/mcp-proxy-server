@@ -715,6 +715,7 @@ describe("startConfigurationPolling", () => {
 	let mockClearAllClientStates: ReturnType<typeof spyOn>;
 	let loggerInfoSpy: ReturnType<typeof spyOn>;
 	let loggerErrorSpy: ReturnType<typeof spyOn>;
+	let mockServer: MockServer;
 
 	const defaultConfig = { mcp: { servers: {} } };
 
@@ -730,6 +731,11 @@ describe("startConfigurationPolling", () => {
 		mockClearAllClientStates = spyOn(dataModule, "clearAllClientStates");
 		loggerInfoSpy = spyOn(logger, "info");
 		loggerErrorSpy = spyOn(logger, "error");
+		mockServer = {
+			sendResourceListChanged: mock(),
+			sendToolListChanged: mock(),
+			sendPromptListChanged: mock(),
+		};
 	});
 
 	afterEach(() => {
@@ -870,10 +876,14 @@ describe("startConfigurationPolling", () => {
 			throw authError;
 		}
 
+		// Act
+		const pollingPromise = startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+		);
+
 		// Act & Assert
-		await expect(
-			startConfigurationPolling(mockConfigGen(), abortController),
-		).rejects.toThrow(AuthenticationError);
+		await expect(pollingPromise).rejects.toThrow(AuthenticationError);
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
 	});
 
@@ -923,7 +933,6 @@ describe("startConfigurationPolling", () => {
 		const pollingPromise = startConfigurationPolling(
 			mockConfigGen(),
 			abortController,
-			mockServer as unknown as Server,
 		);
 
 		// Give time for polling to process
@@ -981,7 +990,6 @@ describe("startConfigurationPolling", () => {
 		const pollingPromise = startConfigurationPolling(
 			mockConfigGen(),
 			abortController,
-			mockServer as unknown as Server,
 		);
 
 		// Give time for polling to process
