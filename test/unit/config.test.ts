@@ -7,6 +7,9 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import * as clientsModule from "../../src/clients";
 import {
 	areConfigurationsEqual,
@@ -14,8 +17,16 @@ import {
 	initializeConfiguration,
 	startConfigurationPolling,
 } from "../../src/config";
+import * as dataModule from "../../src/data";
 import { AuthenticationError, ConfigurationError } from "../../src/errors";
 import { logger } from "../../src/logger";
+import type { ClientState, Configuration } from "../../src/types";
+
+interface MockServer {
+	sendResourceListChanged: ReturnType<typeof mock>;
+	sendToolListChanged: ReturnType<typeof mock>;
+	sendPromptListChanged: ReturnType<typeof mock>;
+}
 
 const ENV_MODULE = "../../src/env";
 let mockConfigUrl = "https://example.com/config";
@@ -585,10 +596,9 @@ describe("configuration", () => {
 		// Wait for polling interval
 		await new Promise((resolve) => setTimeout(resolve, 150));
 
-		// Assert - first configuration should be yielded successfully
+		// Assert
 		expect(result1.done).toBe(false);
 		expect(result1.value).toEqual(validConfiguration);
-		// Polling errors are handled gracefully without terminating the generator
 	});
 
 	test("logs 'Configuration changed' when first fetch fails then succeeds", async () => {
@@ -701,6 +711,8 @@ describe("areConfigurationsEqual", () => {
 
 describe("startConfigurationPolling", () => {
 	let mockConnectClients: ReturnType<typeof spyOn>;
+	let mockGetAllClientStates: ReturnType<typeof spyOn>;
+	let mockClearAllClientStates: ReturnType<typeof spyOn>;
 	let loggerInfoSpy: ReturnType<typeof spyOn>;
 	let loggerErrorSpy: ReturnType<typeof spyOn>;
 
@@ -711,12 +723,19 @@ describe("startConfigurationPolling", () => {
 			clientsModule,
 			"connectClients",
 		).mockImplementation(async () => {});
+		mockGetAllClientStates = spyOn(
+			dataModule,
+			"getAllClientStates",
+		).mockImplementation(() => []);
+		mockClearAllClientStates = spyOn(dataModule, "clearAllClientStates");
 		loggerInfoSpy = spyOn(logger, "info");
 		loggerErrorSpy = spyOn(logger, "error");
 	});
 
 	afterEach(() => {
 		mockConnectClients.mockRestore();
+		mockGetAllClientStates.mockRestore();
+		mockClearAllClientStates.mockRestore();
 		loggerInfoSpy.mockRestore();
 		loggerErrorSpy.mockRestore();
 	});
@@ -855,9 +874,128 @@ describe("startConfigurationPolling", () => {
 		await expect(
 			startConfigurationPolling(mockConfigGen(), abortController),
 		).rejects.toThrow(AuthenticationError);
-
-		// Verify no error logging occurred for AuthenticationError (it's re-thrown, not originated here)
 		expect(loggerErrorSpy).not.toHaveBeenCalled();
+	});
+
+	test("should disconnect existing clients before connecting new ones", async () => {
+		// Arrange
+		const mockTransport1 = { close: () => Promise.resolve() };
+		const mockClose1 = spyOn(mockTransport1, "close").mockImplementation(() =>
+			Promise.resolve(),
+		);
+		const mockTransport2 = { close: () => Promise.resolve() };
+		const mockClose2 = spyOn(mockTransport2, "close").mockImplementation(() =>
+			Promise.resolve(),
+		);
+
+		const existingTransport1 = mockTransport1 as unknown as Transport;
+		const existingTransport2 = mockTransport2 as unknown as Transport;
+
+		const existingClients: ClientState[] = [
+			{
+				name: "existing1",
+				client: {} as Client,
+				transport: existingTransport1,
+			},
+			{
+				name: "existing2",
+				client: {} as Client,
+				transport: existingTransport2,
+			},
+		];
+
+		mockGetAllClientStates.mockImplementation(() => existingClients);
+
+		const config1: Configuration = {
+			mcp: {
+				servers: {
+					newServer: { url: "http://new-server.example.com" },
+				},
+			},
+		};
+		const abortController = new AbortController();
+
+		async function* mockConfigGen() {
+			yield config1;
+		}
+
+		// Act
+		const pollingPromise = startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+			mockServer as unknown as Server,
+		);
+
+		// Give time for polling to process
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		abortController.abort();
+		await pollingPromise;
+
+		// Assert
+		expect(mockGetAllClientStates).toHaveBeenCalled();
+		expect(loggerInfoSpy).toHaveBeenCalledWith(
+			"Disconnecting existing clients",
+		);
+		expect(mockClose1).toHaveBeenCalledTimes(1);
+		expect(mockClose2).toHaveBeenCalledTimes(1);
+		expect(mockClearAllClientStates).toHaveBeenCalledTimes(1);
+		expect(mockConnectClients).toHaveBeenCalledWith(config1);
+	});
+
+	test("should handle clients without transport during disconnection", async () => {
+		// Arrange
+		const mockTransport = { close: () => Promise.resolve() };
+		const mockClose = spyOn(mockTransport, "close").mockImplementation(() =>
+			Promise.resolve(),
+		);
+
+		const existingTransport = mockTransport as unknown as Transport;
+
+		const existingClients: ClientState[] = [
+			{
+				name: "existing1",
+				client: {} as Client,
+				transport: existingTransport,
+			},
+			{
+				name: "existing2",
+				client: {} as Client,
+				transport: undefined,
+			},
+		];
+
+		mockGetAllClientStates.mockImplementation(() => existingClients);
+
+		const config1: Configuration = {
+			mcp: {
+				servers: {},
+			},
+		};
+		const abortController = new AbortController();
+
+		async function* mockConfigGen() {
+			yield config1;
+		}
+
+		// Act
+		const pollingPromise = startConfigurationPolling(
+			mockConfigGen(),
+			abortController,
+			mockServer as unknown as Server,
+		);
+
+		// Give time for polling to process
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		abortController.abort();
+		await pollingPromise;
+
+		// Assert
+		expect(mockGetAllClientStates).toHaveBeenCalled();
+		expect(loggerInfoSpy).toHaveBeenCalledWith(
+			"Disconnecting existing clients",
+		);
+		expect(mockClose).toHaveBeenCalledTimes(1);
+		expect(mockClearAllClientStates).toHaveBeenCalledTimes(1);
 	});
 });
 
