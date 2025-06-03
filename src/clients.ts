@@ -1,10 +1,6 @@
 import { createClient } from "./client";
 import { connect } from "./connect";
-import {
-	clearAllClientStates,
-	getAllClientStates,
-	setClientState,
-} from "./data";
+import { setClientState } from "./data";
 import { logger } from "./logger";
 import type { Configuration } from "./types";
 
@@ -13,15 +9,6 @@ using log = logger;
 export const connectClients = async (
 	configuration: Configuration,
 ): Promise<void> => {
-	const clients = getAllClientStates();
-	if (clients.length > 0) {
-		log.info("Disconnecting existing clients");
-		await Promise.allSettled(
-			clients.map(async (client) => client.transport?.close()),
-		);
-		clearAllClientStates();
-	}
-
 	const servers = Object.entries(configuration.mcp.servers);
 
 	if (servers.length === 0) {
