@@ -51,7 +51,9 @@ describe("createServer", () => {
 		expect(options.capabilities).toEqual({
 			prompts: {},
 			resources: { subscribe: true },
-			tools: {},
+			tools: {
+				listChanged: true,
+			},
 		});
 	});
 

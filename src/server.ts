@@ -7,7 +7,13 @@ export const createServer = () => {
 	const server = new Server(
 		{ name, version },
 		{
-			capabilities: { prompts: {}, resources: { subscribe: true }, tools: {} },
+			capabilities: {
+				prompts: {},
+				resources: { subscribe: true },
+				tools: {
+					listChanged: true,
+				},
+			},
 		},
 	);
 
